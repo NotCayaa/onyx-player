@@ -1,0 +1,54 @@
+{
+    "name": "onyx-player",
+    "author": "caya8205",
+    "private": true,
+    "version": "1.0.0",
+    "type": "module",
+    "main": "electron.cjs",
+    "scripts": {
+        "dev": "node --watch backend/index.js",
+        "vite": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "start": "electron electron.cjs",
+        "build:app": "vite build && electron-builder"
+    },
+    "build": {
+        "appId": "com.onyx.player",
+        "productName": "Onyx Player",
+        "win": {
+            "target": "nsis",
+            "icon": "public/logo.png"
+        },
+        "directories": {
+            "output": "dist-electron"
+        },
+        "asarUnpack": [
+            "**/node_modules/youtube-dl-exec/**",
+            "**/backend/**"
+        ],
+        "files": [
+            "dist/**/*",
+            "electron.cjs",
+            "package.json",
+            "backend/**/*"
+        ]
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.7",
+        "express": "^4.21.2",
+        "multer": "^2.0.2",
+        "spotify-web-api-node": "^5.0.2",
+        "youtube-dl-exec": "^3.0.29",
+        "youtube-pl": "^2.1.2",
+        "youtube-sr": "^4.3.11"
+    },
+    "devDependencies": {
+        "@sveltejs/vite-plugin-svelte": "^4.0.0",
+        "electron": "^39.2.7",
+        "electron-builder": "^26.4.0",
+        "svelte": "^5.0.0",
+        "vite": "^5.0.0"
+    }
+}

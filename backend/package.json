@@ -1,0 +1,19 @@
+{
+  "name": "onyx-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "multer": "^2.0.2",
+    "spotify-web-api-node": "^5.0.2",
+    "youtube-dl-exec": "^3.0.29",
+    "youtube-pl": "^2.1.2",
+    "youtube-sr": "^4.3.11"
+  }
+}
