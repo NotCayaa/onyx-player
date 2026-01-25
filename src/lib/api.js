@@ -57,7 +57,14 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        return res.json();
+        const data = await res.json();
+
+        // Wrap YouTube URL with proxy endpoint for same-origin streaming (enables visualizer)
+        if (data.streamUrl) {
+            data.streamUrl = `${API_BASE}/audio/proxy?url=${encodeURIComponent(data.streamUrl)}`;
+        }
+
+        return data;
     },
 
     async prefetchTracks(tracks) {

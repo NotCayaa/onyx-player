@@ -10,6 +10,8 @@
     // Debug logging
     $: console.log("[Lyrics] analyser:", analyser);
     $: console.log("[Lyrics] visualizerEnabled:", visualizerEnabled);
+    $: console.log("[Lyrics] currentTrack:", currentTrack);
+    $: console.log("[Lyrics] albumArt for visualizer:", currentTrack?.image);
 
     let lyrics = "";
     let isLoading = false;
@@ -81,45 +83,50 @@
 
         try {
             const cleanedTitle = cleanTitle(currentTrack.name);
-            const query = `${cleanedTitle} ${currentTrack.artist}`;
+            const artistName =
+                currentTrack.artists || currentTrack.artist || "";
+            const query = `${cleanedTitle} ${artistName}`;
 
             console.log(`[Lyrics] Searching for: "${query}"`);
 
-            const res = await fetch(
-                `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`,
-            );
-            const results = await res.json();
+            // Try lrclib.net first (supports synced lyrics)
+            let results = [];
+            let lrclibFailed = false;
 
-            // Use track duration for matching (Spotify usage relies on user's track metadata)
-            // We assume currentTrack.duration is in seconds (it is usually from YouTube/Spotify)
-            // If not available, we might skip duration check.
-            // Note: currentTrack from App.svelte -> Player -> Lyrics usually has duration property (from api).
-            // However, let's verify if currentTrack has duration.
-            // If it doesn't, we can try to use the audio duration if loaded, but robust fallback is needed.
-            // Let's assume passed track object has duration (usually from search/playlist).
+            try {
+                const res = await fetch(
+                    `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`,
+                );
 
-            // Normalize duration to seconds
-            // Some sources provide 'duration' in ms, others in s.
-            // Spotify/Home usually provides 'duration' as ms.
-            // lrclib uses seconds.
-            let durationSec = 0;
-
-            if (typeof currentTrack.duration === "number") {
-                // If > 1000, assume ms
-                if (currentTrack.duration > 1000) {
-                    durationSec = currentTrack.duration / 1000;
+                if (res.ok) {
+                    results = await res.json();
+                    if (!Array.isArray(results)) results = [];
                 } else {
-                    durationSec = currentTrack.duration;
+                    console.warn(
+                        `[Lyrics] lrclib returned status ${res.status}`,
+                    );
+                    lrclibFailed = true;
                 }
+            } catch (fetchErr) {
+                console.warn(`[Lyrics] lrclib failed:`, fetchErr.message);
+                lrclibFailed = true;
+            }
+
+            // Normalize duration
+            let durationSec = 0;
+            if (typeof currentTrack.duration === "number") {
+                durationSec =
+                    currentTrack.duration > 1000
+                        ? currentTrack.duration / 1000
+                        : currentTrack.duration;
             } else if (typeof currentTrack.duration_ms === "number") {
                 durationSec = currentTrack.duration_ms / 1000;
             }
 
             console.log(`[Lyrics] Target track duration: ${durationSec}s`);
 
-            // Fallback for duration if missing or 0
             const trackForMatching = {
-                artist: currentTrack.artists || currentTrack.artist || "",
+                artist: artistName,
                 duration: durationSec || 0,
             };
 
@@ -127,17 +134,26 @@
 
             if (bestMatch) {
                 console.log(
-                    `[Lyrics] Found matching lyrics: "${bestMatch.trackName}" (Length: ${bestMatch.duration}s)`,
+                    `[Lyrics] Found matching lyrics: "${bestMatch.trackName}"`,
                 );
-                // Get full lyrics if needed, but search result usually has them?
-                // lrclib search results DO contain lyrics fields usually, but let's be safe.
-                // If the fields are missing, fetch by ID.
+
                 let data = bestMatch;
+
+                // If search result doesn't have lyrics, try fetching by ID
                 if (!bestMatch.syncedLyrics && !bestMatch.plainLyrics) {
-                    const lyricsRes = await fetch(
-                        `https://lrclib.net/api/get/${bestMatch.id}`,
-                    );
-                    data = await lyricsRes.json();
+                    try {
+                        const lyricsRes = await fetch(
+                            `https://lrclib.net/api/get/${bestMatch.id}`,
+                        );
+                        if (lyricsRes.ok) {
+                            data = await lyricsRes.json();
+                        }
+                    } catch (fetchErr) {
+                        console.warn(
+                            "[Lyrics] Failed to fetch by ID:",
+                            fetchErr.message,
+                        );
+                    }
                 }
 
                 if (data.syncedLyrics) {
@@ -146,6 +162,34 @@
                     lyrics = data.plainLyrics;
                 } else {
                     lyrics = "Lyrics not available";
+                }
+            } else if (lrclibFailed || results.length === 0) {
+                // Fallback: Try lyrics.ovh API (plain lyrics only, no API key needed)
+                console.log("[Lyrics] Trying fallback: lyrics.ovh");
+                try {
+                    const ovhRes = await fetch(
+                        `https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(cleanedTitle)}`,
+                    );
+
+                    if (ovhRes.ok) {
+                        const ovhData = await ovhRes.json();
+                        if (ovhData.lyrics) {
+                            lyrics = ovhData.lyrics;
+                            console.log(
+                                "[Lyrics] Found lyrics from lyrics.ovh",
+                            );
+                        } else {
+                            lyrics = "Lyrics not found for this track";
+                        }
+                    } else {
+                        console.warn(
+                            `[Lyrics] lyrics.ovh returned ${ovhRes.status}`,
+                        );
+                        lyrics = "Lyrics not found for this track";
+                    }
+                } catch (ovhErr) {
+                    console.warn("[Lyrics] lyrics.ovh failed:", ovhErr.message);
+                    lyrics = "Lyrics not found for this track";
                 }
             } else {
                 console.log("[Lyrics] No suitable match found.");
@@ -226,7 +270,11 @@
     <!-- Visualizer Background Layer -->
     {#if visualizerEnabled && analyser}
         <div class="visualizer-background">
-            <Visualizer {analyser} enabled={true} />
+            <Visualizer
+                {analyser}
+                enabled={true}
+                albumArt={currentTrack?.albumArt}
+            />
         </div>
     {/if}
 
@@ -269,10 +317,9 @@
     .lyrics {
         background: var(--bg-secondary);
         border-radius: var(--radius-lg);
-        padding: var(--spacing-lg);
+        /* Padding moved to foreground so visualizer can span full width */
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-md);
         height: 100%;
         overflow: hidden;
         position: relative;
@@ -282,13 +329,14 @@
         position: absolute;
         top: 0;
         left: 0;
-        right: 0;
-        bottom: 0;
-        opacity: 0.4;
+        width: 100%;
+        height: 100%;
+        opacity: 0.6;
         pointer-events: none;
         z-index: 0;
         border-radius: var(--radius-lg);
         overflow: hidden;
+        filter: blur(0.5px);
     }
 
     .lyrics-foreground {
@@ -299,6 +347,7 @@
         gap: var(--spacing-md);
         height: 100%;
         overflow: hidden;
+        padding: var(--spacing-lg); /* Padding moved here */
     }
 
     /* Hide scrollbar for Chrome, Safari and Opera */

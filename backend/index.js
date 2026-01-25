@@ -138,6 +138,31 @@ app.get('/export/data', (req, res) => {
     }
 });
 
+// Image Proxy for CORS bypass (album art color extraction)
+app.get('/proxy/image', async (req, res) => {
+    try {
+        const { url } = req.query;
+        if (!url) {
+            return res.status(400).json({ error: 'URL parameter required' });
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            return res.status(response.status).json({ error: 'Failed to fetch image' });
+        }
+
+        const contentType = response.headers.get('content-type');
+        res.set('Content-Type', contentType);
+        res.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+
+        const buffer = await response.arrayBuffer();
+        res.send(Buffer.from(buffer));
+    } catch (error) {
+        console.error('[Proxy] Error:', error);
+        res.status(500).json({ error: 'Failed to proxy image' });
+    }
+});
+
 // Get Spotify Config (for Settings UI)
 app.get('/config/spotify', (req, res) => {
     try {
@@ -409,6 +434,78 @@ app.post('/config/spotify', async (req, res) => {
         res.json({ message: 'Spotify credentials updated successfully' });
     } catch (error) {
         res.status(400).json({ error: error.message });
+    }
+});
+
+// Audio Proxy Endpoint - streams audio through localhost to bypass CORS for visualizer
+app.get('/audio/proxy', async (req, res) => {
+    const { url } = req.query;
+
+    if (!url) {
+        return res.status(400).json({ error: 'url parameter is required' });
+    }
+
+    try {
+        // Build headers including Range for seeking support
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Referer': 'https://www.youtube.com/',
+            'Origin': 'https://www.youtube.com'
+        };
+
+        // Forward Range header if present (for seeking)
+        if (req.headers.range) {
+            headers['Range'] = req.headers.range;
+            console.log('[Audio Proxy] Range request:', req.headers.range);
+        } else {
+            console.log('[Audio Proxy] Streaming audio...');
+        }
+
+        // Fetch audio from YouTube URL
+        const response = await fetch(url, { headers });
+
+        if (!response.ok && response.status !== 206) {
+            console.error('[Audio Proxy] Upstream error:', response.status);
+            return res.status(response.status).json({ error: 'Failed to fetch audio from upstream' });
+        }
+
+        // CORS headers for audio analysis (visualizer)
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Range');
+        res.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+
+        // Forward content headers
+        const contentType = response.headers.get('content-type');
+        const contentLength = response.headers.get('content-length');
+        const contentRange = response.headers.get('content-range');
+
+        if (contentType) res.set('Content-Type', contentType);
+        if (contentLength) res.set('Content-Length', contentLength);
+        if (contentRange) res.set('Content-Range', contentRange);
+        res.set('Accept-Ranges', 'bytes');
+        res.set('Cache-Control', 'no-cache');
+
+        // Set correct status code (206 for partial content, 200 for full)
+        res.status(response.status);
+
+        // Pipe the audio stream directly to client
+        const { Readable } = await import('stream');
+        const nodeStream = Readable.fromWeb(response.body);
+        nodeStream.pipe(res);
+
+        nodeStream.on('error', (err) => {
+            console.error('[Audio Proxy] Stream error:', err.message);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Stream error' });
+            }
+        });
+
+    } catch (error) {
+        console.error('[Audio Proxy] Error:', error.message);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to proxy audio' });
+        }
     }
 });
 

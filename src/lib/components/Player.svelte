@@ -172,6 +172,7 @@
 
   onMount(() => {
     audio = new Audio();
+    audio.crossOrigin = "anonymous"; // Enable CORS for AudioContext analysis
     audio.volume = volume;
 
     audio.addEventListener("loadedmetadata", () => {

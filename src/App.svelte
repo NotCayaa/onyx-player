@@ -41,6 +41,11 @@
     // Listening history
     let listeningHistory = [];
 
+    // Auto-queue recommendations state
+    let autoQueueTrackIds = []; // Track IDs that were auto-added
+    let autoQueueFetching = false; // Prevent concurrent fetches
+    let lastAutoQueueBaseTrack = null; // Track that recommendations are based on
+
     // Load settings and check welcome modal
     onMount(async () => {
         // Load all settings from localStorage
@@ -121,12 +126,15 @@
     }
 
     function addToQueue(track) {
-        // Prevent duplicates
+        // Prevent duplicates (check both manual and auto-added)
         const exists = queue.some((t) => t.id === track.id);
         if (exists) {
             toast.info("Track already in queue");
             return;
         }
+
+        // Clear auto-recommendations when manually adding
+        clearAutoRecommendations();
 
         queue = [...queue, track];
 
@@ -135,6 +143,8 @@
             playTrack(0);
         } else {
             toast.success("Added to queue");
+            // Refresh recommendations based on the newly added track
+            fetchAutoRecommendations(track);
         }
     }
 
@@ -171,11 +181,39 @@
         );
     }
 
-    function playTrack(index) {
+    function playTrack(index, isFromQueueClick = false) {
         if (index >= 0 && index < queue.length) {
+            const previousIndex = currentIndex;
             currentIndex = index;
             currentTrack = queue[index];
             saveToHistory(currentTrack);
+
+            // Detect "far skip" - jumping more than 1 position ahead in queue (not next button)
+            const skipDistance = index - previousIndex;
+            const isFarSkip = skipDistance > 1 && isFromQueueClick;
+
+            if (isFarSkip) {
+                // Far skip detected - clear old auto-recs and refresh based on new track
+                console.log(
+                    "[AutoQueue] Far skip detected, refreshing recommendations",
+                );
+                clearAutoRecommendations();
+                fetchAutoRecommendations(currentTrack);
+            } else {
+                // Check if we're near end of queue (3 or less tracks remaining)
+                // and need more recommendations for continuous playback
+                const remainingTracks = queue.length - index - 1;
+                if (remainingTracks <= 3) {
+                    console.log(
+                        "[AutoQueue] Near end of queue, adding more recommendations",
+                    );
+                    // Force refresh to add more tracks
+                    lastAutoQueueBaseTrack = null; // Reset to allow refetch
+                    fetchAutoRecommendations(currentTrack);
+                } else if (checkAutoQueueNeeded()) {
+                    fetchAutoRecommendations(currentTrack);
+                }
+            }
         }
     }
 
@@ -200,6 +238,9 @@
         queue = [];
         currentTrack = null;
         currentIndex = 0;
+        // Also clear auto-queue tracking
+        autoQueueTrackIds = [];
+        lastAutoQueueBaseTrack = null;
     }
 
     function handleTrackEnd() {
@@ -264,14 +305,85 @@
     function clearListeningHistory() {
         listeningHistory = [];
         localStorage.removeItem("listeningHistory");
-        // Also refresh Home component if needed (it binds to history prop)
+    }
+
+    // Auto-queue recommendation functions
+    async function fetchAutoRecommendations(baseTrack) {
+        if (!baseTrack || autoQueueFetching) return;
+        if (lastAutoQueueBaseTrack?.id === baseTrack.id) return; // Already fetched for this track
+
+        autoQueueFetching = true;
+        lastAutoQueueBaseTrack = baseTrack;
+
+        try {
+            console.log(
+                "[AutoQueue] Fetching recommendations for:",
+                baseTrack.name,
+            );
+            const result = await api.getRecommendations(baseTrack.id);
+
+            if (result.tracks && result.tracks.length > 0) {
+                // Filter out tracks already in queue
+                const existingIds = new Set(queue.map((t) => t.id));
+                const newTracks = result.tracks
+                    .filter((t) => !existingIds.has(t.id))
+                    .slice(0, 10);
+
+                if (newTracks.length > 0) {
+                    // Mark these as auto-added
+                    const newIds = newTracks.map((t) => t.id);
+                    autoQueueTrackIds = [...autoQueueTrackIds, ...newIds];
+
+                    // Add to queue
+                    queue = [...queue, ...newTracks];
+                    console.log(
+                        "[AutoQueue] Added",
+                        newTracks.length,
+                        "recommendations",
+                    );
+                }
+            }
+        } catch (err) {
+            console.error("[AutoQueue] Failed to fetch recommendations:", err);
+        } finally {
+            autoQueueFetching = false;
+        }
+    }
+
+    function clearAutoRecommendations() {
+        if (autoQueueTrackIds.length === 0) return;
+
+        console.log(
+            "[AutoQueue] Clearing",
+            autoQueueTrackIds.length,
+            "auto-added tracks",
+        );
+
+        // Remove auto-added tracks from queue
+        const autoSet = new Set(autoQueueTrackIds);
+        queue = queue.filter((t) => !autoSet.has(t.id));
+
+        // Clear tracking
+        autoQueueTrackIds = [];
+        lastAutoQueueBaseTrack = null;
+    }
+
+    function checkAutoQueueNeeded() {
+        // Check if we need to fetch recommendations
+        // Condition: queue has songs but no more tracks after current (or all remaining are auto-added)
+        if (!currentTrack) return false;
+
+        const remainingManual = queue
+            .slice(currentIndex + 1)
+            .filter((t) => !autoQueueTrackIds.includes(t.id));
+        return remainingManual.length === 0;
     }
 
     function handleToggleVisualizer(event) {
         visualizerEnabled = event.detail;
-        // Get analyser if not already set
-        if (playerComponent && !analyser) {
-            analyser = playerComponent.getAnalyser();
+        // Enable AudioContext when visualizer is turned on (analyser is synced via bind:analyser)
+        if (visualizerEnabled && playerComponent) {
+            playerComponent.enableVisualizer();
         }
     }
 
@@ -392,8 +504,20 @@
                         {currentTrack}
                         bind:showSearch
                         onPlay={(track) => {
-                            addToQueue(track);
-                            playTrack(queue.length - 1);
+                            // Check if track already exists in queue
+                            const existingIndex = queue.findIndex(
+                                (t) => t.id === track.id,
+                            );
+                            if (existingIndex !== -1) {
+                                // Track already in queue - just play it
+                                playTrack(existingIndex);
+                            } else {
+                                // Manual play of new track - clear auto-recs first
+                                clearAutoRecommendations();
+                                // Add to queue and play
+                                queue = [...queue, track];
+                                playTrack(queue.length - 1);
+                            }
                         }}
                         onAdd={addToQueue}
                     />
@@ -427,6 +551,7 @@
             <Queue
                 {queue}
                 {currentIndex}
+                {autoQueueTrackIds}
                 onPlay={playTrack}
                 onRemove={removeFromQueue}
                 onClear={clearQueue}

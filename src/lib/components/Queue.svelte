@@ -1,10 +1,16 @@
 <script>
   export let queue = [];
   export let currentIndex = 0;
-  export let onPlay = (index) => {};
+  export let autoQueueTrackIds = []; // Track IDs that were auto-added as recommendations
+  export let onPlay = (index, isFromQueueClick) => {};
   export let onRemove = (index) => {};
   export let onClear = () => {};
-  export let onSave = (track) => {}; // New callback for saving to playlist
+  export let onSave = (track) => {};
+
+  // Check if a track is auto-added recommendation
+  function isAutoQueued(trackId) {
+    return autoQueueTrackIds.includes(trackId);
+  }
 </script>
 
 <div class="queue">
@@ -21,11 +27,12 @@
         <div
           class="queue-item"
           class:active={index === currentIndex}
-          onclick={() => onPlay(index)}
+          class:auto-queued={isAutoQueued(track.id)}
+          onclick={() => onPlay(index, true)}
           onkeydown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onPlay(index);
+              onPlay(index, true);
             }
           }}
           role="button"
@@ -217,5 +224,11 @@
     text-align: center;
     padding: var(--spacing-xl);
     color: var(--text-secondary);
+  }
+
+  /* Auto-queue recommendation styles */
+  .auto-queued {
+    opacity: 0.85;
+    border-left: 2px solid var(--accent-primary);
   }
 </style>

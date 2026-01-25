@@ -1,113 +1,193 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy } from "svelte";
+  import AudioMotionAnalyzer from "audiomotion-analyzer";
+  import ColorThief from "colorthief";
 
   export let analyser = null;
   export let enabled = true;
+  export let albumArt = null;
 
-  let canvas;
-  let canvasContext;
-  let animationId;
-  let dataArray;
-  let bufferLength;
+  let container;
+  let audioMotion = null;
+  let currentColor = [34, 197, 94]; // Default green
+  let lastAlbumArt = null;
+  const colorThief = new ColorThief();
 
   onMount(() => {
-    if (!canvas) return;
-    
-    canvasContext = canvas.getContext('2d');
-    resizeCanvas();
-    
-    window.addEventListener('resize', resizeCanvas);
-    
-    if (analyser) {
-      bufferLength = analyser.frequencyBinCount;
-      dataArray = new Uint8Array(bufferLength);
-      draw();
+    if (container && analyser) {
+      initAudioMotion();
     }
   });
 
   onDestroy(() => {
-    window.removeEventListener('resize', resizeCanvas);
-    if (animationId) {
-      cancelAnimationFrame(animationId);
+    if (audioMotion) {
+      audioMotion.destroy();
+      audioMotion = null;
     }
   });
 
-  function resizeCanvas() {
-    if (!canvas) return;
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-  }
-
-  function draw() {
-    if (!enabled || !analyser || !canvasContext) {
-      animationId = requestAnimationFrame(draw);
+  async function extractColor(imageUrl) {
+    if (!imageUrl) {
+      console.log("[Visualizer] No album art URL");
+      return;
+    }
+    if (imageUrl === lastAlbumArt) {
       return;
     }
 
-    analyser.getByteFrequencyData(dataArray);
+    lastAlbumArt = imageUrl;
+    console.log("[Visualizer] Extracting color from:", imageUrl);
 
-    const width = canvas.width;
-    const height = canvas.height;
-    const barWidth = (width / bufferLength) * 2.5;
-    
-    canvasContext.fillStyle = 'rgb(10, 10, 10)';
-    canvasContext.fillRect(0, 0, width, height);
+    try {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
 
-    let x = 0;
-    
-    for (let i = 0; i < bufferLength; i++) {
-      const barHeight = (dataArray[i] / 255) * height * 0.8;
-      
-      const hue = (i / bufferLength) * 120 + 120; // Green to cyan range
-      const saturation = 70;
-      const lightness = 50;
-      
-      canvasContext.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-      canvasContext.fillRect(x, height - barHeight, barWidth, barHeight);
-      
-      x += barWidth + 1;
+      const proxyUrl = `http://localhost:3000/proxy/image?url=${encodeURIComponent(imageUrl)}`;
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = proxyUrl;
+      });
+
+      const color = colorThief.getColor(img);
+
+      if (color) {
+        currentColor = color;
+        updateGradient();
+        console.log("[Visualizer] Applied color:", color);
+      }
+    } catch (err) {
+      console.error("[Visualizer] Failed to extract color:", err);
     }
-
-    animationId = requestAnimationFrame(draw);
   }
 
-  $: if (analyser && dataArray) {
-    bufferLength = analyser.frequencyBinCount;
-    dataArray = new Uint8Array(bufferLength);
+  function updateGradient() {
+    if (!audioMotion) return;
+
+    const [r, g, b] = currentColor;
+
+    // Create vibrant variations
+    const vibrantR = Math.min(255, Math.round(r * 1.3));
+    const vibrantG = Math.min(255, Math.round(g * 1.3));
+    const vibrantB = Math.min(255, Math.round(b * 1.3));
+
+    // Lighter version
+    const lightR = Math.min(255, r + 80);
+    const lightG = Math.min(255, g + 80);
+    const lightB = Math.min(255, b + 80);
+
+    // Darker version
+    const darkR = Math.max(0, Math.round(r * 0.5));
+    const darkG = Math.max(0, Math.round(g * 0.5));
+    const darkB = Math.max(0, Math.round(b * 0.5));
+
+    audioMotion.registerGradient("dynamic", {
+      bgColor: "transparent",
+      colorStops: [
+        { color: `rgba(${vibrantR}, ${vibrantG}, ${vibrantB}, 1)`, pos: 0 },
+        { color: `rgba(${r}, ${g}, ${b}, 0.95)`, pos: 0.35 },
+        { color: `rgba(${lightR}, ${lightG}, ${lightB}, 0.85)`, pos: 0.7 },
+        { color: `rgba(${darkR}, ${darkG}, ${darkB}, 0.75)`, pos: 1 },
+      ],
+    });
+    audioMotion.gradient = "dynamic";
+
+    if (container) {
+      container.style.setProperty("--glow-color", `rgb(${r}, ${g}, ${b})`);
+    }
+  }
+
+  function initAudioMotion() {
+    if (audioMotion) {
+      audioMotion.destroy();
+    }
+
+    try {
+      const audioCtx = analyser.context;
+
+      audioMotion = new AudioMotionAnalyzer(container, {
+        source: analyser,
+        audioCtx: audioCtx,
+        mode: 10, // Discrete frequencies
+        gradient: "classic",
+        showScaleX: false,
+        showScaleY: false,
+        showBgColor: false,
+        overlay: true,
+        bgAlpha: 0,
+        smoothing: 0.7,
+        barSpace: 0.2,
+        minFreq: 20,
+        maxFreq: 16000,
+        showPeaks: false,
+        reflexRatio: 0,
+        mirror: 0,
+        lumiBars: false,
+        ledBars: false,
+        roundBars: true,
+        lineWidth: 0,
+        fillAlpha: 0.95,
+        weightingFilter: "A",
+        // Lower minDecibels = more sensitive to quiet audio
+        minDecibels: -100, // Very sensitive for quiet songs
+        maxDecibels: -20, // Allow higher peaks
+      });
+
+      updateGradient();
+      console.log("[Visualizer] AudioMotion initialized");
+    } catch (err) {
+      console.error("[Visualizer] Failed to init AudioMotion:", err);
+    }
+  }
+
+  // React to analyser changes
+  $: if (analyser && container && !audioMotion) {
+    initAudioMotion();
+  }
+
+  // React to album art changes
+  $: if (albumArt && audioMotion) {
+    extractColor(albumArt);
+  }
+
+  // Toggle visibility
+  $: if (audioMotion) {
+    if (enabled) {
+      audioMotion.start();
+    } else {
+      audioMotion.stop();
+    }
   }
 </script>
 
-<div class="visualizer">
-  <canvas bind:this={canvas} class:hidden={!enabled}></canvas>
-  {#if !enabled}
-    <div class="disabled-message">Visualizer disabled</div>
-  {/if}
-</div>
+<div
+  bind:this={container}
+  class="visualizer-container"
+  class:hidden={!enabled}
+></div>
 
 <style>
-  .visualizer {
-    background: var(--bg-secondary);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    height: 200px;
-    position: relative;
-  }
-
-  canvas {
+  .visualizer-container {
+    --glow-color: rgb(34, 197, 94);
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    border-radius: var(--radius-md);
+    border-radius: inherit;
+    pointer-events: none;
+    overflow: hidden;
   }
 
-  canvas.hidden {
+  .visualizer-container :global(canvas) {
+    width: 100% !important;
+    height: 100% !important;
+    filter: drop-shadow(0 0 10px var(--glow-color))
+      drop-shadow(0 0 25px var(--glow-color));
+  }
+
+  .hidden {
     display: none;
-  }
-
-  .disabled-message {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--text-secondary);
   }
 </style>

@@ -366,12 +366,6 @@
                             </button>
                         </div>
                     </div>
-
-                    <p class="note">
-                        <strong>Note:</strong> Visualizer currently does not work
-                        due to browser security (CORS) and YouTube restrictions.
-                        Contributions welcome!
-                    </p>
                 </section>
 
                 <!-- Spotify API Settings -->
@@ -642,6 +636,8 @@
                     <ul>
                         <li>Svelte 5 - Vite 5</li>
                         <li>Electron 39</li>
+                        <li>audiomotion-analyzer (Visualizer)</li>
+                        <li>colorthief (Color Extraction)</li>
                     </ul>
 
                     <p><strong>Backend</strong></p>
