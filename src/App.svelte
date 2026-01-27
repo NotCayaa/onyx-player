@@ -188,31 +188,16 @@
             currentTrack = queue[index];
             saveToHistory(currentTrack);
 
-            // Detect "far skip" - jumping more than 1 position ahead in queue (not next button)
-            const skipDistance = index - previousIndex;
-            const isFarSkip = skipDistance > 1 && isFromQueueClick;
-
-            if (isFarSkip) {
-                // Far skip detected - clear old auto-recs and refresh based on new track
+            // Add more recommendations when changing tracks
+            // (unless it's the same track as before)
+            if (previousIndex !== index) {
                 console.log(
-                    "[AutoQueue] Far skip detected, refreshing recommendations",
+                    "[AutoQueue] Track changed, adding recommendations for:",
+                    currentTrack.name,
                 );
-                clearAutoRecommendations();
+                // Reset lastAutoQueueBaseTrack to allow fetching new recommendations
+                lastAutoQueueBaseTrack = null;
                 fetchAutoRecommendations(currentTrack);
-            } else {
-                // Check if we're near end of queue (3 or less tracks remaining)
-                // and need more recommendations for continuous playback
-                const remainingTracks = queue.length - index - 1;
-                if (remainingTracks <= 3) {
-                    console.log(
-                        "[AutoQueue] Near end of queue, adding more recommendations",
-                    );
-                    // Force refresh to add more tracks
-                    lastAutoQueueBaseTrack = null; // Reset to allow refetch
-                    fetchAutoRecommendations(currentTrack);
-                } else if (checkAutoQueueNeeded()) {
-                    fetchAutoRecommendations(currentTrack);
-                }
             }
         }
     }
@@ -319,11 +304,26 @@
             console.log(
                 "[AutoQueue] Fetching recommendations for:",
                 baseTrack.name,
+                baseTrack.isYouTube ? "(YouTube)" : "(Spotify)",
             );
-            const result = await api.getRecommendations(baseTrack.id);
+
+            let result;
+
+            // If YouTube track, use YouTube recommendations
+            if (baseTrack.isYouTube) {
+                result = await api.getRecommendations(baseTrack.id, {
+                    limit: 30,
+                    isYouTube: true,
+                    name: baseTrack.name,
+                    artist: baseTrack.artist || baseTrack.artists,
+                });
+            } else {
+                // Spotify tracks use artist top tracks (simplified, working)
+                result = await api.getRecommendations(baseTrack.id);
+            }
 
             if (result.tracks && result.tracks.length > 0) {
-                // Filter out tracks already in queue
+                // Filter out tracks already in queue (including current track)
                 const existingIds = new Set(queue.map((t) => t.id));
                 const newTracks = result.tracks
                     .filter((t) => !existingIds.has(t.id))
@@ -345,6 +345,75 @@
             }
         } catch (err) {
             console.error("[AutoQueue] Failed to fetch recommendations:", err);
+        } finally {
+            autoQueueFetching = false;
+        }
+    }
+
+    // Atomic refresh: fetch new recommendations first, then replace old ones
+    async function refreshAutoRecommendations(baseTrack) {
+        if (!baseTrack || autoQueueFetching) return;
+
+        autoQueueFetching = true;
+
+        try {
+            console.log(
+                "[AutoQueue] Refreshing recommendations for:",
+                baseTrack.name,
+                baseTrack.isYouTube ? "(YouTube)" : "(Spotify)",
+            );
+
+            let result;
+
+            // If YouTube track, use YouTube recommendations
+            if (baseTrack.isYouTube) {
+                result = await api.getRecommendations(baseTrack.id, {
+                    limit: 30,
+                    isYouTube: true,
+                    name: baseTrack.name,
+                    artist: baseTrack.artist || baseTrack.artists,
+                });
+            } else {
+                // Spotify tracks use artist top tracks (simplified, working)
+                result = await api.getRecommendations(baseTrack.id);
+            }
+
+            if (result.tracks && result.tracks.length > 0) {
+                // Get manual tracks (non-auto) up to current position
+                const manualTracks = queue
+                    .slice(0, currentIndex + 1)
+                    .filter((t) => !autoQueueTrackIds.includes(t.id));
+                // Also include current track
+                const currentQueueUpToNow = queue.slice(0, currentIndex + 1);
+
+                // Filter recommendations to avoid duplicates with current queue
+                const currentIds = new Set(
+                    currentQueueUpToNow.map((t) => t.id),
+                );
+                const newTracks = result.tracks
+                    .filter((t) => !currentIds.has(t.id))
+                    .slice(0, 10);
+
+                if (newTracks.length > 0) {
+                    // Atomically replace: keep tracks up to current, add new recommendations
+                    queue = [...currentQueueUpToNow, ...newTracks];
+
+                    // Update tracking
+                    autoQueueTrackIds = newTracks.map((t) => t.id);
+                    lastAutoQueueBaseTrack = baseTrack;
+
+                    console.log(
+                        "[AutoQueue] Replaced with",
+                        newTracks.length,
+                        "new recommendations",
+                    );
+                }
+            }
+        } catch (err) {
+            console.error(
+                "[AutoQueue] Failed to refresh recommendations:",
+                err,
+            );
         } finally {
             autoQueueFetching = false;
         }
@@ -700,7 +769,11 @@
 
     .center-panel {
         gap: var(--spacing-sm);
-        min-width: 400px; /* Ensure player+lyrics always visible */
+        min-width: 400px;
+        display: flex;
+        flex-direction: column;
+        height: 100%; /* Tambah ini */
+        overflow: hidden;
     }
 
     .left-panel {

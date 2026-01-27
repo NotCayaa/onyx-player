@@ -109,7 +109,7 @@
       audioMotion = new AudioMotionAnalyzer(container, {
         source: analyser,
         audioCtx: audioCtx,
-        mode: 10, // Discrete frequencies
+        mode: 10, // Mode 10 = waveform
         gradient: "classic",
         showScaleX: false,
         showScaleY: false,
@@ -117,25 +117,22 @@
         overlay: true,
         bgAlpha: 0,
         smoothing: 0.7,
-        barSpace: 0.2,
+        lineWidth: 3, // Thickness of waveform line
+        fillAlpha: 0.6, // Fill opacity under waveform
+        channelLayout: "single", // Mono channel
+        reflexRatio: 0.5, // Mirror atas-bawah (50% reflex)
+        reflexAlpha: 0.4, // Opacity mirror
+        reflexBright: 1,
+        reflexFit: true,
         minFreq: 20,
         maxFreq: 16000,
-        showPeaks: false,
-        reflexRatio: 0,
-        mirror: 0,
-        lumiBars: false,
-        ledBars: false,
-        roundBars: true,
-        lineWidth: 0,
-        fillAlpha: 0.95,
         weightingFilter: "A",
-        // Lower minDecibels = more sensitive to quiet audio
-        minDecibels: -100, // Very sensitive for quiet songs
-        maxDecibels: -20, // Allow higher peaks
+        minDecibels: -85,
+        maxDecibels: -25,
       });
 
       updateGradient();
-      console.log("[Visualizer] AudioMotion initialized");
+      console.log("[Visualizer] AudioMotion initialized with waveform mode");
     } catch (err) {
       console.error("[Visualizer] Failed to init AudioMotion:", err);
     }

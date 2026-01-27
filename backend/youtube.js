@@ -383,18 +383,58 @@ class YouTubeService {
 
             console.log(`[YouTube] Recommendation search found ${results.length} results.`);
 
-            // Filter out the current video ID from results
-            return results
-                .filter(v => v.id !== videoId)
-                .map(v => ({
-                    id: v.id,
-                    name: v.title,
-                    artists: v.channel?.name || "Unknown",
-                    albumArt: v.thumbnail?.url || v.thumbnail,
-                    duration: v.duration,
-                    isYouTube: true,
-                    youtubeUrl: v.url
-                }));
+            // Filter out unwanted content (reactions, reviews) but NOT covers (user has karaoke playlist)
+            const blockedTerms = ['reaction', 'react', 'review', 'reacting', 'first time', 'listening to'];
+            const filtered = results.filter(v => {
+                const titleLower = v.title?.toLowerCase() || '';
+                return !blockedTerms.some(term => titleLower.includes(term));
+            });
+            console.log(`[YouTube] After filtering reactions/reviews: ${filtered.length}`);
+
+            // Normalize function to create comparable track name
+            const normalize = (str) => (str || '')
+                .toLowerCase()
+                .replace(/[\(\[\{].*?[\)\]\}]/g, '') // Remove parentheses content
+                .replace(/official|music video|mv|lyric|lyrics|audio|hd|4k|full|ver\.|version/gi, '')
+                .replace(/[^\p{L}\p{N}\s]/gu, '') // Keep only letters, numbers, spaces
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            // Dedup by normalized title (prioritize Topic channels, then first seen)
+            const seenTitles = new Map();
+            const deduped = [];
+
+            for (const v of filtered) {
+                if (v.id === videoId) continue; // Skip current video
+
+                const normTitle = normalize(v.title);
+                const channelName = v.channel?.name || '';
+                const isTopic = channelName.includes('- Topic') || channelName.includes(' - トピック');
+
+                if (!seenTitles.has(normTitle)) {
+                    seenTitles.set(normTitle, { video: v, isTopic });
+                    deduped.push(v);
+                } else if (isTopic && !seenTitles.get(normTitle).isTopic) {
+                    // Replace with Topic channel version
+                    const existingIdx = deduped.findIndex(d => normalize(d.title) === normTitle);
+                    if (existingIdx >= 0) {
+                        deduped[existingIdx] = v;
+                        seenTitles.set(normTitle, { video: v, isTopic: true });
+                    }
+                }
+            }
+
+            console.log(`[YouTube] After dedup by title: ${deduped.length}`);
+
+            return deduped.map(v => ({
+                id: v.id,
+                name: v.title,
+                artists: v.channel?.name || "Unknown",
+                albumArt: v.thumbnail?.url || v.thumbnail,
+                duration: v.duration,
+                isYouTube: true,
+                youtubeUrl: v.url
+            }));
 
         } catch (error) {
             console.error(`[YouTube] Recommendations failed:`, error.message);

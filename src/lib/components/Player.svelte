@@ -1,3 +1,6 @@
+<!-- svelte-ignore a11y-click-events-have-key-events -->
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<!-- svelte-ignore a11y-role-has-required-aria-props -->
 <script>
   import { onMount, onDestroy } from "svelte";
   import { api } from "../api.js";
@@ -277,24 +280,32 @@
 </script>
 
 <div class="player">
-  <div class="track-info">
+  <!-- Circular Visualizer + Album Art Section -->
+  <div class="circular-section">
+    <div class="circular-container">
+      <!-- Visualizer akan ditaro disini nanti -->
+      <div class="visualizer-wrapper">
+        <!-- Import Visualizer component kalau udah siap -->
+      </div>
+
+      <!-- Album Art di tengah -->
+      <div class="album-art-circle">
+        {#if currentTrack?.albumArt}
+          <img src={currentTrack.albumArt} alt={currentTrack.name} />
+        {:else}
+          <div class="album-art-placeholder-circle"></div>
+        {/if}
+      </div>
+    </div>
+  </div>
+
+  <!-- Track Info (dibawah circular) -->
+  <div class="track-info-centered">
     {#if currentTrack}
-      <img
-        src={currentTrack.albumArt}
-        alt={currentTrack.name}
-        class="album-art"
-      />
-      <div class="track-details">
-        <h3>{currentTrack.name}</h3>
-        <p>{currentTrack.artists}</p>
-      </div>
+      <h3>{currentTrack.name}</h3>
+      <p>{currentTrack.artists}</p>
     {:else}
-      <div class="no-track">
-        <div class="album-art-placeholder"></div>
-        <div class="track-details">
-          <p>No track playing</p>
-        </div>
-      </div>
+      <p class="no-track">No track playing</p>
     {/if}
   </div>
 
@@ -308,6 +319,7 @@
         ><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg
       >
     </button>
+
     <button
       class="btn-icon"
       onclick={togglePlay}
@@ -317,15 +329,16 @@
       {#if isLoading}
         <div class="spinner"></div>
       {:else if isPlaying}
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
-          ><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"
+          ><path d="M6 4h4v16H6zm8 0h4v16h-4z" /></svg
         >
       {:else}
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"
           ><path d="M8 5v14l11-7z" /></svg
         >
       {/if}
     </button>
+
     <button class="btn-icon small" onclick={onNext} aria-label="Next Track">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
         ><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg
@@ -333,35 +346,18 @@
     </button>
   </div>
 
-  <div class="progress-container">
+  <div class="progress-container" onclick={seek} role="slider" tabindex="0">
     <span class="time current">{formattedCurrent}</span>
     <div
       class="progress-bar-wrapper"
-      onclick={seek}
-      onmousemove={handleMouseMove}
       onmouseenter={handleMouseEnter}
       onmouseleave={handleMouseLeave}
-      role="slider"
-      tabindex="0"
-      aria-label="Seek Progress"
-      aria-valuenow={progress}
-      aria-valuemin="0"
-      aria-valuemax="100"
-      onkeydown={(e) => {
-        if (e.key === "ArrowRight") {
-          const newTime = Math.min(duration, currentTime + 5);
-          audio.currentTime = newTime;
-        }
-        if (e.key === "ArrowLeft") {
-          const newTime = Math.max(0, currentTime - 5);
-          audio.currentTime = newTime;
-        }
-      }}
+      onmousemove={handleMouseMove}
+      role="presentation"
     >
       <div class="progress-bar">
         <div class="progress-fill" style="width: {progress}%"></div>
         {#if isHovering}
-          <!-- Hover Point Indicator -->
           <div class="hover-point" style="left: {hoverLeft}px"></div>
           <!-- Time Tooltip -->
           <div class="time-tooltip" style="left: {hoverLeft}px">
@@ -399,48 +395,93 @@
   .player {
     background: var(--bg-secondary);
     border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
+    padding: 0.5rem;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: 0.25rem;
+    align-items: flex-start;
+    max-height: 320px;
+    flex-shrink: 0;
+    overflow: hidden;
   }
 
-  .track-info {
+  /* Line 418-422: Circular section tetep center */
+  .circular-section {
+    width: 100%;
     display: flex;
-    gap: var(--spacing-md);
-    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.15rem;
+    align-self: center; /* Tambah ini biar circular tetep center */
   }
 
-  .album-art {
-    width: 64px;
-    height: 64px;
-    border-radius: var(--radius-md);
+  .circular-container {
+    position: relative;
+    width: 140px; /* Dikurangin dari 180px ke 140px */
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .visualizer-wrapper {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1;
+  }
+
+  .album-art-circle {
+    position: relative;
+    z-index: 10;
+    width: 90px; /* Dikurangin dari 115px ke 90px */
+    height: 90px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .album-art-circle img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
   }
 
-  .album-art-placeholder {
-    width: 64px;
-    height: 64px;
-    border-radius: var(--radius-md);
+  .album-art-placeholder-circle {
+    width: 100%;
+    height: 100%;
     background: var(--bg-tertiary);
   }
 
-  h3 {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 1.125rem;
+  .track-info-centered {
+    text-align: center;
+    max-width: 300px;
+    margin-bottom: 0.15rem;
+    align-self: center; /* Tambah ini */
   }
 
-  p {
-    margin: 4px 0 0;
+  .track-info-centered h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.9rem; /* Font dikurangin */
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .track-info-centered p {
+    margin: 2px 0 0;
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .no-track {
-    display: flex;
-    gap: var(--spacing-md);
-    align-items: center;
     opacity: 0.5;
   }
 
@@ -448,13 +489,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
+    width: 100%;
+    align-self: center; /* Tambah ini */
   }
 
   .btn-icon {
-    width: 48px;
-    height: 48px;
-    font-size: 1.25rem;
+    width: 44px;
+    height: 44px;
     background: var(--accent-primary);
     color: white;
     border-radius: 50%;
@@ -464,6 +506,7 @@
     border: none;
     cursor: pointer;
     transition: all 0.2s;
+    flex-shrink: 0;
   }
 
   .btn-icon:hover {
@@ -478,9 +521,8 @@
   }
 
   .btn-icon.small {
-    width: 36px;
-    height: 36px;
-    font-size: 1rem;
+    width: 32px;
+    height: 32px;
     background: transparent;
     color: var(--text-secondary);
   }
@@ -509,23 +551,24 @@
     display: flex;
     align-items: center;
     width: 100%;
-    gap: 10px;
+    gap: 8px;
     cursor: pointer;
-    padding: 5px 0; /* Increase hit area */
+    align-self: center;
+    margin-top: 0.5rem;
   }
 
   .time {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-secondary);
-    min-width: 40px;
+    min-width: 35px;
     text-align: center;
-    pointer-events: none; /* Prevent time from interfering with hover */
+    pointer-events: none;
   }
 
   .progress-bar-wrapper {
     flex: 1;
     position: relative;
-    height: 6px;
+    height: 10px;
     display: flex;
     align-items: center;
   }
@@ -535,7 +578,7 @@
     height: 4px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 2px;
-    overflow: visible; /* Allow tooltip to show outside */
+    overflow: visible;
     transition: height 0.2s;
     position: relative;
   }
@@ -569,7 +612,6 @@
     transform: translateY(-50%) scale(1);
   }
 
-  /* Hover Effects */
   .hover-point {
     position: absolute;
     top: 50%;
@@ -584,13 +626,13 @@
 
   .time-tooltip {
     position: absolute;
-    bottom: 15px; /* Position above bar */
+    bottom: 12px;
     transform: translateX(-50%);
     background: #282828;
     color: #fff;
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-radius: 4px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     pointer-events: none;
     white-space: nowrap;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
@@ -602,24 +644,24 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    justify-content: flex-start; /* Forced Left Alignment */
-    width: auto; /* Allow it to be just as wide as needed */
-    margin-top: var(--spacing-sm);
+    justify-content: flex-start;
+    width: auto;
+    margin-top: 0.25rem; /* Margin dikurangin */
   }
 
   .volume-icon {
     display: flex;
     align-items: center;
     color: var(--text-secondary);
-    min-width: 20px; /* Prevent layout shift */
+    min-width: 20px;
   }
 
   .volume-slider {
-    width: 80px; /* Fixed small width, exactly like 'perfect' screenshot */
+    width: 80px;
     height: 4px;
     -webkit-appearance: none;
     appearance: none;
-    background: var(--bg-tertiary); /* Grey background */
+    background: var(--bg-tertiary);
     border-radius: var(--radius-full);
     outline: none;
     cursor: pointer;
@@ -636,7 +678,7 @@
     border-radius: 50%;
     cursor: pointer;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    margin-top: 0; /* Align center */
+    margin-top: 0;
   }
 
   .volume-slider:active::-webkit-slider-thumb {

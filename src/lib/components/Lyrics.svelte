@@ -248,9 +248,30 @@
             const activeElement =
                 lyricsContainer.querySelector(".lyric-line.active");
             if (activeElement) {
-                activeElement.scrollIntoView({
+                // Use getBoundingClientRect for absolute visual position accuracy
+                const containerRect = lyricsContainer.getBoundingClientRect();
+                const elementRect = activeElement.getBoundingClientRect();
+
+                // Calculate position of element relative to container's current view
+                const relativeTop = elementRect.top - containerRect.top;
+
+                // Current scroll position
+                const currentScroll = lyricsContainer.scrollTop;
+
+                // We want the element's center to be at the container's center
+                // target = currentScroll + relativeTop - (containerHalf) + (elementHalf)
+                // Add positive offset to push content UP (because scroll increases downwards)
+                const visualOffset = 70; // black magic
+                const targetScrollTop =
+                    currentScroll +
+                    relativeTop -
+                    containerRect.height / 2 +
+                    elementRect.height / 2 +
+                    visualOffset;
+
+                lyricsContainer.scrollTo({
+                    top: targetScrollTop,
                     behavior: "smooth",
-                    block: "center",
                 });
             }
         }
@@ -317,12 +338,13 @@
     .lyrics {
         background: var(--bg-secondary);
         border-radius: var(--radius-lg);
-        /* Padding moved to foreground so visualizer can span full width */
         display: flex;
         flex-direction: column;
         height: 100%;
         overflow: hidden;
         position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
     }
 
     .visualizer-background {
@@ -347,7 +369,7 @@
         gap: var(--spacing-md);
         height: 100%;
         overflow: hidden;
-        padding: var(--spacing-lg); /* Padding moved here */
+        padding: var(--spacing-md);
     }
 
     /* Hide scrollbar for Chrome, Safari and Opera */
@@ -368,6 +390,12 @@
     .lyrics-content {
         flex: 1;
         overflow-y: auto;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        position: relative;
     }
 
     .loading {
@@ -377,6 +405,7 @@
         justify-content: center;
         padding: var(--spacing-xl);
         gap: var(--spacing-md);
+        margin: auto;
     }
 
     .lyrics-text {
@@ -386,7 +415,8 @@
         white-space: pre-wrap;
         word-wrap: break-word;
         color: var(--text-primary);
-        margin: 0;
+        margin: auto; /* Centers content */
+        padding: 0; /* User requested removal */
     }
 
     .no-lyrics,
@@ -394,6 +424,7 @@
         text-align: center;
         padding: var(--spacing-xl);
         color: var(--text-secondary);
+        margin: auto; /* Centers content */
     }
 
     .error {
@@ -404,6 +435,9 @@
         display: flex;
         flex-direction: column;
         gap: var(--spacing-sm);
+        width: 100%;
+        flex-shrink: 0;
+        margin: auto;
     }
 
     .lyric-line {

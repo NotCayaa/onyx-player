@@ -113,12 +113,58 @@ class SpotifyService {
             await this.withRetry(async () => {
                 const data = await this.spotify.clientCredentialsGrant();
                 this.spotify.setAccessToken(data.body.access_token);
+                this.accessToken = data.body.access_token; // Store for direct fetch
                 this.tokenExpiresAt = Date.now() + (data.body.expires_in * 1000) - 60000; // Refresh 1min before expiry
                 console.log('[Spotify] Access token refreshed');
             });
         } catch (error) {
             console.error('[Spotify] Auth error after retries:', error.message);
             throw new Error('Failed to authenticate with Spotify');
+        }
+    }
+
+    // Direct fetch to Spotify API - bypasses library for debugging
+    async getRecommendationsDirect(seedTrackId, seedArtistId, limit = 10) {
+        await this.ensureAuth();
+
+        const params = new URLSearchParams({
+            seed_tracks: seedTrackId,
+            seed_artists: seedArtistId,
+            limit: limit.toString(),
+            market: 'US'
+        });
+
+        const url = `https://api.spotify.com/v1/recommendations?${params.toString()}`;
+        console.log(`[Spotify Recs] Direct fetch URL: ${url}`);
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${this.accessToken}`
+                }
+            });
+
+            console.log(`[Spotify Recs] Response status: ${response.status} ${response.statusText}`);
+
+            // Get raw text first to see what we're getting
+            const text = await response.text();
+
+            if (!text || text.length === 0) {
+                console.error('[Spotify Recs] Empty response body');
+                return { tracks: [] };
+            }
+
+            if (!response.ok) {
+                console.error('[Spotify Recs] Error response:', text);
+                return { tracks: [] };
+            }
+
+            const data = JSON.parse(text);
+            console.log(`[Spotify Recs] Direct fetch returned ${data.tracks?.length || 0} tracks`);
+            return data;
+        } catch (err) {
+            console.error('[Spotify Recs] Direct fetch failed:', err.message);
+            return { tracks: [] };
         }
     }
 
@@ -186,8 +232,8 @@ class SpotifyService {
     }
 
     async getRecommendations(seedTrackId, limit = 10) {
-        // Check cache first (1 hour TTL)
-        const cacheKey = `recommendations:${seedTrackId}:${limit}`;
+        // Check cache first (30 min TTL - shorter to allow variety)
+        const cacheKey = `recommendations:v3:${seedTrackId}:${limit}`;
         const cached = cache.getGeneric(cacheKey);
         if (cached) {
             console.log(`[Spotify] Cache hit for recommendations ${seedTrackId}`);
@@ -197,59 +243,26 @@ class SpotifyService {
         await this.ensureAuth();
 
         try {
-            // Get seed track info to extract artist
-            const seedTrack = await this.getTrack(seedTrackId);
-            const artistId = seedTrack.artistId || (await this.withRetry(() => this.spotify.getTrack(seedTrackId))).body.artists[0].id;
+            // Get full track info from Spotify API to get artists array with IDs
+            const trackResult = await this.withRetry(() => this.spotify.getTrack(seedTrackId));
+            const artistId = trackResult.body.artists[0].id;
+            const artistName = trackResult.body.artists[0].name;
+            console.log(`[Spotify Recs] Seed track: "${trackResult.body.name}" by "${artistName}"`);
 
-            // Parallel API calls for efficiency
-            const [recommendations, artistTopTracks, relatedArtists] = await Promise.all([
-                // 1. Spotify recommendations
-                this.withRetry(() => this.spotify.getRecommendations({
-                    seed_tracks: [seedTrackId],
-                    limit: Math.ceil(limit * 0.5) // 50% from recommendations
-                })).catch(() => ({ body: { tracks: [] } })),
+            // Just get artist's top tracks - simple and works
+            const artistTopTracks = await this.withRetry(() =>
+                this.spotify.getArtistTopTracks(artistId, 'US')
+            );
 
-                // 2. Artist's top tracks
-                this.withRetry(() => this.spotify.getArtistTopTracks(artistId, 'US'))
-                    .catch(() => ({ body: { tracks: [] } })),
-
-                // 3. Related artists
-                this.withRetry(() => this.spotify.getArtistRelatedArtists(artistId))
-                    .catch(() => ({ body: { artists: [] } }))
-            ]);
-
-            // Collect all tracks
-            let allTracks = [];
-
-            // Add Spotify recommendations (50%)
-            const recTracks = recommendations.body.tracks || [];
-            allTracks.push(...recTracks.slice(0, Math.ceil(limit * 0.5)));
-
-            // Add artist's popular tracks (25%) - excluding seed track
+            // Filter out seed track and limit
             const topTracks = (artistTopTracks.body.tracks || [])
                 .filter(t => t.id !== seedTrackId)
-                .slice(0, Math.ceil(limit * 0.25));
-            allTracks.push(...topTracks);
+                .slice(0, limit);
 
-            // Add related artists' top tracks (25%)
-            if (relatedArtists.body.artists && relatedArtists.body.artists.length > 0) {
-                const relatedArtist = relatedArtists.body.artists[0];
-                const relatedTopTracks = await this.withRetry(() => this.spotify.getArtistTopTracks(relatedArtist.id, 'US'))
-                    .catch(() => ({ body: { tracks: [] } }));
-                const related = (relatedTopTracks.body.tracks || []).slice(0, Math.ceil(limit * 0.25));
-                allTracks.push(...related);
-            }
-
-            // Remove duplicates and limit
-            const seen = new Set();
-            const uniqueTracks = allTracks.filter(track => {
-                if (seen.has(track.id) || track.id === seedTrackId) return false;
-                seen.add(track.id);
-                return true;
-            }).slice(0, limit);
+            console.log(`[Spotify Recs] Got ${topTracks.length} tracks from artist "${artistName}"`);
 
             // Format tracks
-            const tracks = uniqueTracks.map(track => ({
+            const tracks = topTracks.map(track => ({
                 id: track.id,
                 name: track.name,
                 artist: track.artists[0].name,
@@ -266,8 +279,8 @@ class SpotifyService {
                 cache.setTrack(track.id, track);
             });
 
-            // Cache recommendations for 1 hour
-            cache.setGeneric(cacheKey, tracks, 60 * 60 * 1000);
+            // Cache recommendations for 30 min
+            cache.setGeneric(cacheKey, tracks, 30 * 60 * 1000);
 
             return tracks;
         } catch (error) {
