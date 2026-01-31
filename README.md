@@ -1,40 +1,41 @@
-# Onyx Player
+# Onyx Player (Nightly Build)
 
-**Onyx** is a modern, sleek, and powerful desktop music player built with **Svelte 5**, **Electron**, and **Node.js**. It combines the best of both worlds: Spotify's metadata & recommendation engine with YouTube's vast audio library.
+> **WARNING**: This is an experimental nightly build. Features may be unstable and is subject to frequent breaking changes.
 
-![Onyx Player](public/logo.png)
+**Onyx** is a modern, sleek, and powerful desktop music player built with **Svelte 5**, **Electron**, **Tailwind CSS**, and **Node.js**. It combines the best of both worlds: Spotify's metadata & recommendation engine with YouTube's vast audio library.
 
-## Features
+## Nightly Features
 
-- **Modern UI/UX**: Glassmorphism design, dark mode by default, and smooth animations.
-- **Smart Streaming**: Uses Spotify for metadata/search and YouTube for audio streaming (best match algorithm).
-- **Dynamic Visualizer**: Real-time audio visualizer (`audiomotion-analyzer`) that adapts colors from the album art (`colorthief`).
-- **Smart Queue**: Spotify-like queue system with auto-recommendations when the queue ends.
-- **Lyrics Integration**: Synchronized lyrics support.
-- **Library Management**: multiple playlists, favorites, and history tracking.
-- **Privacy Focused**: data stored locally `user/appdata`.
+This branch (nightly) introduces a complete UI overhaul focusing on density and responsiveness:
+
+- **System-Wide Compact Mode**: A global density scaler that adjusts font sizes, padding, and layout across the entire application (Sidebar, Player, Queue, Settings) for a more information-dense experience.
+- **Responsive 4-Column Grid**: The Home view dynamically adjusts card sizing to fit more content in compact mode.
+- **Animated Sidebar**: Smooth, sliding active state indicator for navigation tabs with spring physics.
+- **Enhanced Theme Consistency**: Full support for both Light and Dark modes across all modals and overlays.
+- **Modern Styling Architecture**: Migrated core styles to Tailwind CSS v3 for better maintainability (removing legacy CSS variables).
+
+## Standard Features
+
+- **Modern UI/UX**: Glassmorphism design and smooth animations.
+- **Smart Streaming**: Uses Spotify for metadata/search and YouTube for audio streaming.
+- **Dynamic Visualizer**: Real-time audio visualizer (audiomotion-analyzer) that adapts to album art colors.
+- **Smart Queue**: Spotify-like queue system with auto-recommendations.
+- **Library Management**: Playlists, favorites, and listening history.
 
 ## Tech Stack
 
-- **Frontend**: Svelte 5, Vite 5
+- **Frontend**: Svelte 5, Vite 5, Tailwind CSS v3
 - **Desktop**: Electron 39
 - **Backend**: Express (Node.js)
-- **Audio Engine**: `youtube-dl-exec` / `youtube-sr` (Stream via Proxy)
-- **Data Source**: `spotify-web-api-node`
-- **Visuals**: `audiomotion-analyzer`, `colorthief`
+- **Audio Engine**: yt-dlp (Core Streaming) / youtube-sr (Search)
+- **Data Source**: Spotify Web API
+- **Visuals**: audiomotion-analyzer, colorthief
 
-## Getting Started
+## Installation
 
-### Prerequisites
-- Node.js (v18 or later)
-- Git
-- Spotify Client ID & Secret (for metadata)
-
-### Installation
-
-1. **Clone the repository**
+1. **Clone the repository (Nightly Branch)**
    ```bash
-   git clone https://github.com/NotCayaa/onyx-player.git
+   git clone -b nightly https://github.com/NotCayaa/onyx-player.git
    cd onyx-player
    ```
 
@@ -43,35 +44,12 @@
    npm install
    ```
 
-3. **Configure Environment**
-   Create a `.env` file or configure via Settings UI later (Spotify Credentials).
-
-4. **Run Development Mode**
-   You need to run both backend and frontend.
-
+3. **Run Development Mode**
    ```bash
-   # Terminal 1 - Backend
+   # Run both backend and frontend concurrently
    npm run dev
-   
-   # Terminal 2 - Frontend (Vite)
-   npm run vite
-
-   # Terminal 3 - Electron
    npm start
    ```
-
-### Building for Production
-
-To build the executable (`.exe` for Windows):
-
-```bash
-npm run build:app
-```
-Output will be in `dist-electron/`.
-
-## Contributing
-
-This project is personal, but contributions are welcome! feel free to open issues or PRs.
 
 ## License
 
