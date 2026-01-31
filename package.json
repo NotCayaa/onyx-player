@@ -10,8 +10,8 @@
         "vite": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "start": "electron electron.cjs",
-        "build:app": "vite build && electron-builder"
+        "start": "concurrently -k \"npm run vite\" \"electron electron.cjs\"",
+        "build:app": "set NODE_OPTIONS=--max-old-space-size=8192 && vite build && electron-builder"
     },
     "build": {
         "appId": "com.onyx.player",
@@ -40,14 +40,16 @@
         "cors": "^2.8.5",
         "dotenv": "^16.4.7",
         "express": "^4.21.2",
+        "follow-redirects": "^1.15.11",
         "multer": "^2.0.2",
         "spotify-web-api-node": "^5.0.2",
-        "youtube-dl-exec": "^3.0.29",
+        "youtube-dl-exec": "^3.0.30",
         "youtube-pl": "^2.1.2",
-        "youtube-sr": "^4.3.11"
+        "youtube-sr": "^4.3.12"
     },
     "devDependencies": {
         "@sveltejs/vite-plugin-svelte": "^4.0.0",
+        "concurrently": "^9.2.1",
         "electron": "^39.2.7",
         "electron-builder": "^26.4.0",
         "svelte": "^5.0.0",

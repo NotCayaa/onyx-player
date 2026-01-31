@@ -1,3 +1,11 @@
+<script context="module">
+  // Cache to persist across tab switches (component unmounts)
+  let recCache = {
+    trackId: null,
+    data: [],
+  };
+</script>
+
 <script>
   import { api } from "../api.js";
 
@@ -14,6 +22,13 @@
   async function loadRecommendations() {
     if (!track || !track.id) return;
 
+    // Check cache first (Fix: Recs refreshing on tab switch)
+    if (recCache.trackId === track.id && recCache.data.length > 0) {
+      // console.log("Using cached recommendations for:", track.name);
+      recommendations = recCache.data;
+      return;
+    }
+
     isLoading = true;
     try {
       // Pass isYouTube flag and metadata for better search fallback
@@ -28,9 +43,14 @@
       if (data.error) {
         console.warn("Recommendations not available:", data.error);
         recommendations = [];
-        return;
+      } else {
+        recommendations = data.tracks || [];
+        // Update cache
+        recCache = {
+          trackId: track.id,
+          data: recommendations,
+        };
       }
-      recommendations = data.tracks || [];
     } catch (error) {
       console.error("Recommendations error:", error);
       recommendations = [];

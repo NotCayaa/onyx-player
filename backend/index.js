@@ -1,4 +1,6 @@
 import express from 'express';
+import youtubedlExec from 'youtube-dl-exec';
+const { exec } = youtubedlExec;
 import os from 'os';
 import cors from 'cors';
 import multer from 'multer';
@@ -21,7 +23,7 @@ const BASE_DATA_DIR = process.env.APP_DATA_DIR
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Ensure required directories exist in the correct location
+// Ensure required directories exist
 const COVERS_DIR = path.join(BASE_DATA_DIR, 'covers');
 const CACHE_DIR = path.join(BASE_DATA_DIR, 'cache');
 
@@ -259,41 +261,126 @@ app.post('/stream', async (req, res) => {
             return res.json({ error: 'trackId is required' });
         }
 
-        let track;
+        let videoId;
 
         // If it's a YouTube direct search result, use provided metadata
         if (isYouTube) {
-            // For YouTube tracks, trackId IS the video ID
-            const result = await youtube.getStreamUrl(trackId);
+            videoId = trackId;
+        } else {
+            // For Spotify tracks, get metadata and find YouTube
+            const track = await spotify.getTrack(trackId);
 
+            // Try cache first
+            const learnedId = cache.getLearnedMatch(trackId);
+            if (learnedId) {
+                videoId = learnedId;
+            } else {
+                // Trigger search if not found
+                await youtube.getTrackStreamUrl(trackId, track.name, track.artist);
+                videoId = cache.getLearnedMatch(trackId);
+            }
+        }
+
+        if (!videoId) {
+            return res.json({ error: 'Could not resolve video ID' });
+        }
+
+        // HYBRID STRATEGY: Disk Cache -> Direct Stream Fallback
+
+        // 1. Check if file exists in cache
+        const cacheFilePath = cache.getCacheFilePath(videoId);
+
+        if (fs.existsSync(cacheFilePath)) {
+            // console.log(`[Stream] Serving from disk cache: ${videoId}`);
+            // Serve static file directly from disk
+            // We return a specific URL for serving the file to allow seeking
             return res.json({
-                streamUrl: result,
-                cached: false,
-                track: req.body.track // Use the track metadata from request
+                streamUrl: `http://localhost:${PORT}/stream/cache/${videoId}`,
+                cached: true,
+                track: req.body.track
             });
         }
 
-        // For Spotify tracks, get metadata and find YouTube
-        track = await spotify.getTrack(trackId);
-
-        // Get YouTube stream URL
-        const result = await youtube.getTrackStreamUrl(
-            trackId,
-            track.name,
-            track.artist
-        );
+        // 2. Fallback: Direct Stream (Live Pipe)
+        // console.log(`[Stream] Cache miss, using direct stream for ${videoId}`);
+        const directUrl = `http://localhost:${PORT}/stream/direct/${videoId}`;
 
         res.json({
-            streamUrl: result.url,
-            cached: result.cached,
-            track
+            streamUrl: directUrl,
+            cached: false,
+            track: req.body.track
         });
     } catch (error) {
         res.json({ error: error.message });
     }
 });
 
-// Prefetch next tracks
+// CACHE STREAM ENDPOINT (Serves downloaded file)
+app.get('/stream/cache/:videoId', (req, res) => {
+    const { videoId } = req.params;
+    const filePath = cache.getCacheFilePath(videoId);
+
+    if (fs.existsSync(filePath)) {
+        res.sendFile(filePath); // Express handles range requests automatically
+    } else {
+        res.status(404).send('Cache file not found');
+    }
+});
+
+// DIRECT STREAM ENDPOINT (Spawns yt-dlp binary)
+app.get('/stream/direct/:videoId', (req, res) => {
+    const { videoId } = req.params;
+    console.log(`[Direct Stream] Spawning yt-dlp for ${videoId}`);
+
+    try {
+        const options = {
+            output: '-',
+            // Relaxed format: Try best audio, fallback to best video+audio (e.g. format 18)
+            format: 'bestaudio/best',
+            noCheckCertificates: true,
+            // preferFreeFormats: true, // Removed: Might be prioritizing broken formats
+            noPlaylist: true,
+            noWarnings: true,
+            // Force Android Client (Verified working via diagnostic)
+            extractorArgs: 'youtube:player_client=android',
+            // CRITICAL: Do NOT override User-Agent. 
+            // Diagnostic showed success with default Desktop UA. 
+            // Forcing Android UA caused 403s likely due to TLS mismatch.
+        };
+
+        /* 
+        // Cookies removed based on successful diagnostic
+        const cookiePath = path.join(process.cwd(), 'backend', 'cookies.txt');
+        if (fs.existsSync(cookiePath)) {
+            options.cookies = cookiePath;
+        } 
+        */
+
+        // stream directly to response
+        const subprocess = exec(
+            `https://www.youtube.com/watch?v=${videoId}`,
+            options
+        );
+
+        // Pipe stdout (audio binary) to response
+        subprocess.stdout.pipe(res);
+
+        subprocess.stderr.on('data', (data) => {
+            // console.error(`[yt-dlp stderr] ${data}`); 
+        });
+
+        // Handle cleanup
+        res.on('close', () => {
+            console.log('[Direct Stream] Client closed connection, killing yt-dlp');
+            subprocess.kill();
+        });
+
+    } catch (e) {
+        console.error('[Direct Stream] Error:', e);
+        if (!res.headersSent) res.status(500).send('Stream Error');
+    }
+});
+
 // Prefetch next tracks
 app.post('/prefetch', async (req, res) => {
     try {
@@ -439,24 +526,50 @@ app.post('/config/spotify', async (req, res) => {
 
 // Audio Proxy Endpoint - streams audio through localhost to bypass CORS for visualizer
 app.get('/audio/proxy', async (req, res) => {
-    const { url } = req.query;
+    // Manually extract 'url' from query string to avoid Express parsing issues with unencoded ampersands
+    let url = req.query.url;
+
+    // Robust fallback: Parse from full request URL if query param seems truncated or suspicious
+    const fullUrl = req.url;
+    if (fullUrl.includes('url=')) {
+        const match = fullUrl.match(/[?&]url=([^&]*)/);
+        const rawUrlParam = fullUrl.substring(fullUrl.indexOf('url=') + 4);
+        if (rawUrlParam) {
+            if (rawUrlParam.startsWith('http')) {
+                url = rawUrlParam;
+            }
+        }
+    }
 
     if (!url) {
         return res.status(400).json({ error: 'url parameter is required' });
     }
 
+    url = String(url);
+
+    if (url.startsWith('https%3A') || url.startsWith('http%3A')) {
+        url = decodeURIComponent(url);
+    }
+
+    // Helper to safely strip param from URL
+    const removeParam = (urlStr, param) => {
+        return urlStr.replace(new RegExp(`[&?]${param}=[^&]*`, 'g'), '');
+    };
+
+    // Extract updated params if present
+    if (url.includes('onyx_ua=')) url = removeParam(url, 'onyx_ua');
+    if (url.includes('onyx_cookie=')) url = removeParam(url, 'onyx_cookie');
+
+    console.log(`[Audio Proxy] Full Proxy URL: ${url}`);
+
     try {
-        // Build headers including Range for seeking support
+        // Headers for direct proxy
         const headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Referer': 'https://www.youtube.com/',
-            'Origin': 'https://www.youtube.com'
+            'User-Agent': 'com.google.android.youtube/17.36.36 (Linux; U; Android 12; en_US) gzip',
         };
 
-        // Forward Range header if present (for seeking)
         if (req.headers.range) {
             headers['Range'] = req.headers.range;
-            console.log('[Audio Proxy] Range request:', req.headers.range);
         } else {
             console.log('[Audio Proxy] Streaming audio...');
         }
@@ -469,7 +582,7 @@ app.get('/audio/proxy', async (req, res) => {
             return res.status(response.status).json({ error: 'Failed to fetch audio from upstream' });
         }
 
-        // CORS headers for audio analysis (visualizer)
+        // CORS headers for audio analysis
         res.set('Access-Control-Allow-Origin', '*');
         res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.set('Access-Control-Allow-Headers', 'Range');
@@ -486,7 +599,6 @@ app.get('/audio/proxy', async (req, res) => {
         res.set('Accept-Ranges', 'bytes');
         res.set('Cache-Control', 'no-cache');
 
-        // Set correct status code (206 for partial content, 200 for full)
         res.status(response.status);
 
         // Pipe the audio stream directly to client
@@ -521,4 +633,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`🎵 Music Player API running on http://localhost:${PORT}`);
 });
-

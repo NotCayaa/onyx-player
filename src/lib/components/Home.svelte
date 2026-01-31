@@ -1,3 +1,11 @@
+<script context="module">
+    // Cache New Releases (1 Hour TTL)
+    let releaseCache = {
+        data: [],
+        timestamp: 0,
+    };
+</script>
+
 <script>
     import { onMount, onDestroy } from "svelte";
     import Recommendations from "./Recommendations.svelte";
@@ -63,10 +71,26 @@
     }
 
     async function fetchNewReleases() {
+        // Check cache (TTL: 1 Hour)
+        const ONE_HOUR = 60 * 60 * 1000;
+        if (
+            releaseCache.data.length > 0 &&
+            Date.now() - releaseCache.timestamp < ONE_HOUR
+        ) {
+            newReleases = releaseCache.data;
+            return;
+        }
+
         loadingReleases = true;
         try {
             const result = await api.getNewReleases(10, history.slice(0, 5));
             newReleases = result.tracks || [];
+
+            // Update cache
+            releaseCache = {
+                data: newReleases,
+                timestamp: Date.now(),
+            };
         } catch (error) {
             console.error("Failed to fetch new releases:", error);
             newReleases = [];

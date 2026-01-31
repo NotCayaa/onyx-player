@@ -21,27 +21,13 @@ class CacheManager {
         this.streamCache = new Map();   // YouTube Video ID -> Direct Stream URL (In-Memory Only)
         this.prefetchQueue = [];        // Queue of track IDs to prefetch
 
+        // Preferences (Persisted)
+        this.preferences = {
+            dataSaver: false
+        };
+
         this.ensureCacheDir();
         this.load();
-    }
-
-    // In-Memory Stream Cache (VideoID -> URL)
-    setStreamCache(videoId, url) {
-        this.streamCache.set(videoId, {
-            url,
-            expires: Date.now() + (6 * 60 * 60 * 1000) // 6 Hours validity
-        });
-    }
-
-    getStreamCache(videoId) {
-        const item = this.streamCache.get(videoId);
-        if (!item) return null;
-
-        if (Date.now() > item.expires) {
-            this.streamCache.delete(videoId);
-            return null;
-        }
-        return item.url;
     }
 
     ensureCacheDir() {
@@ -50,10 +36,25 @@ class CacheManager {
         }
     }
 
+    // --- Preferences ---
+    getPreference(key) {
+        return this.preferences[key];
+    }
+
+    setPreference(key, value) {
+        this.preferences[key] = value;
+        this.save();
+    }
+
     load() {
         try {
             if (fs.existsSync(this.cacheFile)) {
                 const data = JSON.parse(fs.readFileSync(this.cacheFile, 'utf8'));
+
+                // Restore preferences
+                if (data.preferences) {
+                    this.preferences = { ...this.preferences, ...data.preferences };
+                }
 
                 // Restore caches from file
                 if (data.trackMetadata) {
@@ -71,7 +72,7 @@ class CacheManager {
                     this.learningCache = new Map(Object.entries(data.learningCache));
                 }
 
-                console.log(`[Cache] Loaded ${this.trackMetadata.size} tracks, ${this.youtubeUrls.size} YT URLs, ${this.learningCache.size} learned matches`);
+                console.log(`[Cache] Loaded ${this.trackMetadata.size} tracks, ${this.youtubeUrls.size} YT URLs, ${this.learningCache.size} matches, DataSaver: ${this.preferences.dataSaver}`);
             }
         } catch (error) {
             console.error('[Cache] Error loading cache:', error.message);
@@ -81,6 +82,7 @@ class CacheManager {
     save() {
         try {
             const data = {
+                preferences: this.preferences,
                 trackMetadata: Object.fromEntries(this.trackMetadata),
                 youtubeUrls: Object.fromEntries(this.youtubeUrls),
                 learningCache: Object.fromEntries(this.learningCache),
@@ -175,7 +177,54 @@ class CacheManager {
         this.learningCache.clear();
         this.prefetchQueue = [];
         this.save();
-        console.log('[Cache] All caches cleared');
+
+        // Delete all downloaded files
+        try {
+            if (fs.existsSync(this.cacheDir)) {
+                const files = fs.readdirSync(this.cacheDir);
+                files.forEach(file => {
+                    if (file.endsWith('.webm')) {
+                        fs.unlinkSync(path.join(this.cacheDir, file));
+                    }
+                });
+            }
+            console.log('[Cache] All metadata and downloaded files cleared');
+        } catch (error) {
+            console.error('[Cache] Failed to clear physical files:', error.message);
+        }
+    }
+
+    // --- Disk Cache Management ---
+
+    getCacheFilePath(videoId) {
+        // We use .webm as the standard container for opus audio from yt-dlp
+        return path.join(this.cacheDir, `${videoId}.webm`);
+    }
+
+    async cleanupCache(maxFiles = 20) {
+        try {
+            const files = fs.readdirSync(this.cacheDir)
+                .filter(file => file.endsWith('.webm'))
+                .map(file => {
+                    const filePath = path.join(this.cacheDir, file);
+                    return {
+                        path: filePath,
+                        time: fs.statSync(filePath).mtime.getTime()
+                    };
+                })
+                .sort((a, b) => a.time - b.time); // Oldest first
+
+            if (files.length > maxFiles) {
+                const toDelete = files.slice(0, files.length - maxFiles);
+                toDelete.forEach(file => {
+                    fs.unlinkSync(file.path);
+                    // console.log(`[Cache] Cleaned up old file: ${path.basename(file.path)}`);
+                });
+                console.log(`[Cache] Cleanup removed ${toDelete.length} old tracks.`);
+            }
+        } catch (error) {
+            console.error('[Cache] Cleanup failed:', error.message);
+        }
     }
 }
 

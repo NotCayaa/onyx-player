@@ -42,7 +42,22 @@ function createWindow() {
 
     // Load content based on environment
     if (app.isPackaged) {
-        mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
+        // RACE CONDITION FIX: Wait for backend to be ready before loading UI
+        const checkBackend = setInterval(() => {
+            const { net } = require('electron');
+            const request = net.request('http://localhost:3000');
+            request.on('response', (response) => {
+                if (response.statusCode === 200 || response.statusCode === 404) { // 200 or 404 means server is up
+                    console.log('Backend is ready! Loading UI...');
+                    clearInterval(checkBackend);
+                    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
+                }
+            });
+            request.on('error', (err) => {
+                console.log('Waiting for backend...');
+            });
+            request.end();
+        }, 1000); // Check every 1s
     } else {
         console.log('Loading http://localhost:5173...');
         mainWindow.loadURL('http://localhost:5173').catch((err) => {

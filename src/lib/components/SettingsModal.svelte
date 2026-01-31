@@ -120,9 +120,43 @@
             console.error("Failed to fetch Spotify config:", error);
         }
     }
+    // Data Saver State
+    let dataSaver = false;
+
+    async function fetchPreferences() {
+        try {
+            const res = await fetch("http://localhost:3000/config/preferences");
+            if (res.ok) {
+                const data = await res.json();
+                dataSaver = data.dataSaver || false;
+            }
+        } catch (error) {
+            console.error("Failed to fetch preferences:", error);
+        }
+    }
+
+    async function toggleDataSaver() {
+        dataSaver = !dataSaver;
+        try {
+            await fetch("http://localhost:3000/config/preferences", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dataSaver }),
+            });
+            toast.success(
+                dataSaver ? "Data Saver Enabled" : "Data Saver Disabled",
+            );
+        } catch (error) {
+            console.error("Failed to save Data Saver:", error);
+            dataSaver = !dataSaver; // Revert on error
+            toast.error("Failed to save setting");
+        }
+    }
+
     // Load config when modal opens
     $: if (isOpen) {
         fetchSpotifyConfig();
+        fetchPreferences();
     }
 
     // Confirmation State
@@ -368,6 +402,37 @@
                     </div>
                 </section>
 
+                <section class="settings-section">
+                    <h3>Playback</h3>
+
+                    <!-- Data Saver Toggle -->
+                    <div
+                        class="toggle-option"
+                        onclick={toggleDataSaver}
+                        onkeydown={(e) =>
+                            e.key === "Enter" && toggleDataSaver()}
+                        role="button"
+                        tabindex="0"
+                    >
+                        <div class="toggle-info">
+                            <span class="toggle-label">Data Saver</span>
+                            <span class="toggle-desc"
+                                >Disable background downloads (Prefetch). Saves
+                                data, increases latency.</span
+                            >
+                        </div>
+                        <label class="toggle-switch">
+                            <input
+                                type="checkbox"
+                                bind:checked={dataSaver}
+                                onchange={toggleDataSaver}
+                                onclick={(e) => e.stopPropagation()}
+                            />
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </section>
+
                 <!-- Spotify API Settings -->
                 <section class="settings-section">
                     <h3>Spotify Integration</h3>
@@ -610,7 +675,7 @@
                         {cacheClearing ? "Clearing..." : "Clear All Cache"}
                     </button>
                     <p class="cache-note">
-                        Clears all cached song metadata and YouTube URLs
+                        Clears all cached metadata and downloaded audio files
                     </p>
 
                     <button
@@ -645,7 +710,7 @@
                         <li>Node.js + Express 4.21</li>
                         <li>Spotify Web API 5.0</li>
                         <li>youtube-sr (Search)</li>
-                        <li>yt-dlp (Streaming)</li>
+                        <li>yt-dlp (Hybrid Stream/Download)</li>
                     </ul>
 
                     <p><strong>External APIs</strong></p>
