@@ -265,78 +265,67 @@
   }
 </script>
 
-<div class="search">
-  <h3 class="search-header">Search</h3>
-
-  <div class="tabs">
+<div class="flex flex-col gap-3 p-4">
+  <!-- Tabs -->
+  <div class="flex gap-1 p-1 bg-[var(--bg-tertiary)] rounded-xl">
     <button
-      class="tab"
-      class:active={activeTab === "spotify"}
+      class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all
+             {activeTab === 'spotify'
+        ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}"
       onclick={() => switchTab("spotify")}
     >
       Spotify
     </button>
     <button
-      class="tab"
-      class:active={activeTab === "youtube"}
+      class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all
+             {activeTab === 'youtube'
+        ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}"
       onclick={() => switchTab("youtube")}
     >
       YouTube
     </button>
   </div>
 
-  <div class="search-input-container">
+  <!-- Search Input -->
+  <div class="relative">
     <input
       type="text"
       bind:value={query}
       oninput={handleInput}
       placeholder={activeTab === "spotify"
-        ? "Search Spotify Songs..."
-        : "Search YouTube Videos..."}
-      class="search-input"
+        ? "Search songs..."
+        : "Search videos..."}
+      class="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-white/20 transition-colors"
     />
     {#if isSearching}
-      <div class="spinner-wrapper">
-        <div class="spinner"></div>
+      <div class="absolute right-4 top-1/2 -translate-y-1/2">
+        <div
+          class="w-4 h-4 border-2 border-neutral-600 border-t-white rounded-full animate-spin"
+        ></div>
       </div>
     {/if}
   </div>
 
-  {#if activeTab === "spotify"}
-    <div class="playlist-import">
-      <input
-        type="text"
-        bind:value={playlistUrl}
-        placeholder="Paste Spotify Playlist URL..."
-        class="search-input"
-      />
-      <button
-        class="btn-secondary"
-        onclick={importSpotifyPlaylist}
-        disabled={isLoadingPlaylist || !playlistUrl.trim()}
-      >
-        {isLoadingPlaylist ? "Importing..." : "Import Playlist"}
-      </button>
-    </div>
-  {/if}
-
-  {#if activeTab === "youtube"}
-    <div class="playlist-import">
-      <input
-        type="text"
-        bind:value={playlistUrl}
-        placeholder="Paste YouTube playlist URL..."
-        class="search-input"
-      />
-      <button
-        class="btn-secondary"
-        onclick={importPlaylist}
-        disabled={isLoadingPlaylist || !playlistUrl.trim()}
-      >
-        {isLoadingPlaylist ? "Importing..." : "Import Playlist"}
-      </button>
-    </div>
-  {/if}
+  <!-- Playlist Import -->
+  <div class="flex gap-2">
+    <input
+      type="text"
+      bind:value={playlistUrl}
+      placeholder={activeTab === "spotify"
+        ? "Spotify playlist URL..."
+        : "YouTube playlist URL..."}
+      class="flex-1 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-white text-sm placeholder-neutral-500 focus:outline-none focus:border-white/20 transition-colors"
+    />
+    <button
+      class="px-4 py-2.5 bg-white hover:bg-neutral-200 disabled:opacity-50 disabled:hover:bg-white text-black text-sm font-medium rounded-xl transition-colors whitespace-nowrap"
+      onclick={activeTab === "spotify" ? importSpotifyPlaylist : importPlaylist}
+      disabled={isLoadingPlaylist || !playlistUrl.trim()}
+    >
+      {isLoadingPlaylist ? "..." : "Import"}
+    </button>
+  </div>
 
   {#if showPlaylistModal}
     <div
@@ -374,20 +363,31 @@
     </div>
   {/if}
 
-  <div class="results">
+  <div
+    class="flex flex-col gap-1 mt-2 max-h-[200px] overflow-y-auto scrollbar-hide"
+  >
     {#if results.length > 0}
       {#each results as track}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div class="track-item" onclick={() => onPlay(track)}>
-          <img src={track.albumArt} alt={track.name} class="track-thumb" />
-          <div class="track-info">
-            <div class="track-name">{track.name}</div>
-            <div class="track-artist">{track.artists}</div>
+        <div
+          class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group"
+          onclick={() => onPlay(track)}
+        >
+          <img
+            src={track.albumArt}
+            alt={track.name}
+            class="w-10 h-10 rounded-lg object-cover"
+          />
+          <div class="flex-1 min-w-0">
+            <div class="text-white text-sm truncate">{track.name}</div>
+            <div class="text-neutral-400 text-xs truncate">{track.artists}</div>
           </div>
-          <div class="track-actions">
+          <div
+            class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          >
             <button
-              class="btn-icon add-btn"
+              class="p-1.5 rounded-lg hover:bg-[var(--bg-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               onclick={(e) => {
                 e.stopPropagation();
                 onAdd(track);
@@ -395,8 +395,8 @@
               title="Add to Queue"
             >
               <svg
-                width="20"
-                height="20"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
@@ -404,7 +404,7 @@
               </svg>
             </button>
             <button
-              class="btn-icon add-btn"
+              class="p-1.5 rounded-lg hover:bg-[var(--bg-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               onclick={(e) => {
                 e.stopPropagation();
                 openPlaylistModal(track);
@@ -412,8 +412,8 @@
               title="Save to Playlist"
             >
               <svg
-                width="18"
-                height="18"
+                width="14"
+                height="14"
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
@@ -426,7 +426,7 @@
         </div>
       {/each}
     {:else if query && !isSearching}
-      <p class="no-results">No results found</p>
+      <p class="text-neutral-500 text-sm text-center py-4">No results found</p>
     {/if}
   </div>
 </div>
@@ -481,202 +481,6 @@
 {/if}
 
 <style>
-  .search {
-    background: var(--bg-secondary);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .search-header {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .tabs {
-    display: flex;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-xs);
-    background: var(--bg-tertiary);
-    padding: 4px;
-    border-radius: var(--radius-md);
-  }
-
-  .tab {
-    flex: 1;
-    padding: var(--spacing-sm);
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-
-  .tab.active {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .search-input-container {
-    position: relative;
-    -webkit-app-region: no-drag;
-  }
-
-  .search-input {
-    width: 100%;
-    font-size: 1rem;
-    -webkit-app-region: no-drag; /* Double safety */
-  }
-
-  .search-input-container .spinner-wrapper {
-    position: absolute;
-    right: var(--spacing-md);
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none; /* Let clicks pass through */
-  }
-
-  /* Empty rule removed */
-
-  .results {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-  }
-
-  .track-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: background var(--transition-fast);
-    /* Button Reset */
-    width: 100%;
-    background: transparent;
-    border: none;
-    text-align: left;
-    font-family: inherit;
-    color: inherit;
-    -webkit-app-region: no-drag; /* Ensure unclickable in drag zones */
-    position: relative; /* Context for absolute actions */
-    /* overflow: hidden; Removed to prevent clipping issues */
-  }
-
-  /* ... existing hover rule ... */
-
-  .track-item:hover {
-    background: var(--bg-hover);
-  }
-
-  .track-thumb {
-    width: 48px;
-    height: 48px;
-    min-width: 48px; /* Prevent shrink */
-    min-height: 48px; /* Prevent shrink */
-    border-radius: var(--radius-sm);
-    object-fit: cover;
-    flex-shrink: 0; /* Critical for flex containers */
-  }
-
-  .track-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .track-name {
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .track-artist {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .track-actions {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    gap: 2px; /* Very tight gap */
-    padding: 0 8px;
-    background: linear-gradient(
-      to right,
-      transparent,
-      var(--bg-hover) 10%,
-      var(--bg-hover) 100%
-    ); /* Stronger gradient */
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    pointer-events: none; /* Ignore clicks when hidden */
-    z-index: 10;
-  }
-
-  .track-item:hover .track-actions {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .add-btn {
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-    padding: 4px; /* Reduced padding */
-    border-radius: 50%; /* Circle look */
-    display: flex; /* Center SVG */
-    align-items: center;
-    justify-content: center;
-  }
-
-  .add-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--accent);
-  }
-
-  .track-item:hover .add-btn {
-    opacity: 1;
-  }
-
-  .no-results {
-    text-align: center;
-    padding: var(--spacing-xl);
-    color: var(--text-secondary);
-  }
-
-  .playlist-import {
-    display: flex;
-    gap: var(--spacing-sm);
-    align-items: center;
-    margin-top: var(--spacing-sm);
-  }
-
-  .playlist-import button {
-    white-space: nowrap;
-  }
-
   /* Modal Styles */
   .modal-overlay {
     position: fixed;

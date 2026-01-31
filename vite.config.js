@@ -5,6 +5,9 @@ export default defineConfig({
   plugins: [svelte()],
   base: './',
   server: {
-    port: 5173
+    port: 5173,
+    watch: {
+      ignored: ['**/backend/**']
+    }
   }
 })

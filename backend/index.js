@@ -276,7 +276,7 @@ app.post('/stream', async (req, res) => {
                 videoId = learnedId;
             } else {
                 // Trigger search if not found
-                await youtube.getTrackStreamUrl(trackId, track.name, track.artist);
+                await youtube.resolveMatch(trackId, track.name, track.artist);
                 videoId = cache.getLearnedMatch(trackId);
             }
         }

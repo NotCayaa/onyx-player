@@ -12,10 +12,66 @@
     import WelcomeModal from "./lib/components/WelcomeModal.svelte";
     import PlaylistModal from "./lib/components/PlaylistModal.svelte";
     import Toast from "./lib/components/Toast.svelte";
+    import ColorThief from "colorthief";
 
     let queue = [];
     let currentIndex = 0;
     let currentTrack = null;
+
+    // Background Color Logic
+    const colorThief = new ColorThief();
+    let lastProcessedArt = null;
+
+    async function updateThemeColor(track) {
+        if (!track?.albumArt || track.albumArt === lastProcessedArt) return;
+        lastProcessedArt = track.albumArt;
+
+        try {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            // Use proxy to avoid CORS issues
+            const proxyUrl = `http://localhost:3000/proxy/image?url=${encodeURIComponent(track.albumArt)}`;
+
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = proxyUrl;
+            });
+
+            const color = colorThief.getColor(img);
+            if (color) {
+                const [r, g, b] = color;
+
+                // Calculate brightness
+                const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+                // If extract color is too dark (e.g. black album cover), use Green to keep glass effect visible
+                if (brightness < 50) {
+                    document.documentElement.style.setProperty(
+                        "--dominant-rgb",
+                        "34, 197, 94",
+                    );
+                } else {
+                    document.documentElement.style.setProperty(
+                        "--dominant-rgb",
+                        `${r}, ${g}, ${b}`,
+                    );
+                }
+            }
+        } catch (err) {
+            console.error("Failed to extract color:", err);
+            // Fallback to Green
+            document.documentElement.style.setProperty(
+                "--dominant-rgb",
+                "34, 197, 94",
+            );
+        }
+    }
+
+    // React to track changes
+    $: if (currentTrack) {
+        updateThemeColor(currentTrack);
+    }
     let playerComponent;
     let currentTime = 0; // For lyrics sync
     let analyser = null; // AudioContext analyser for visualizer
@@ -37,6 +93,7 @@
     // Playlist modal state
     let showPlaylistModal = false;
     let selectedPlaylist = null;
+    let showLyrics = false; // New V3 State: Toggle between Queue/Lyrics in Right Panel
 
     // Listening history
     let listeningHistory = [];
@@ -48,6 +105,12 @@
 
     // Load settings and check welcome modal
     onMount(async () => {
+        // Force default green background on start
+        document.documentElement.style.setProperty(
+            "--dominant-rgb",
+            "34, 197, 94",
+        );
+
         // Load all settings from localStorage
         const saved = localStorage.getItem("visualizerEnabled");
         if (saved !== null) {
@@ -58,6 +121,8 @@
         if (savedTheme) {
             theme = savedTheme;
             document.documentElement.setAttribute("data-theme", theme);
+            // Apply body class for CSS variables
+            document.body.classList.toggle("light", theme === "light");
 
             // Sync with Electron window frame
             try {
@@ -460,6 +525,8 @@
         theme = event.detail;
         console.log("Theme changed to:", theme);
         document.documentElement.setAttribute("data-theme", theme);
+        // Apply body class for CSS variables
+        document.body.classList.toggle("light", theme === "light");
 
         // Sync with Electron window frame
         try {
@@ -535,55 +602,113 @@
     }
 </script>
 
-<main>
-    <header>
-        <div class="logo-container">
-            <img
-                src={theme === "light" ? "./logo-light.png" : "./logo.png"}
-                alt="Logo"
-                class="app-logo"
-            />
-        </div>
-        <button class="icon-btn" onclick={openSettings} aria-label="Settings">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
-                />
-            </svg>
-        </button>
-    </header>
+<main
+    class="h-screen w-screen bg-transparent text-[var(--text-primary)] flex flex-col overflow-hidden box-border font-sans antialiased selection:bg-white/20"
+>
+    <!-- Header removed for V3 Layout -->
 
-    <div class="layout">
-        <div class="left-panel">
-            <div class="tabs">
-                <button
-                    class="tab-btn {activeTab === 'home' ? 'active' : ''}"
-                    onclick={() => (activeTab = "home")}>Home</button
-                >
-                <button
-                    class="tab-btn {activeTab === 'playlists' ? 'active' : ''}"
-                    onclick={() => (activeTab = "playlists")}>Library</button
-                >
+    <!-- Main Layout -->
+    <main
+        class="flex-1 grid grid-cols-[80px_1fr_400px] gap-4 p-2 pt-2 h-full relative z-10 transition-all duration-300"
+        class:compact={compactMode}
+    >
+        <!-- LEFT PANEL (Nav Rail) -->
+        <div
+            class="flex flex-col gap-4 min-h-0 items-stretch py-4 px-3 bg-[var(--bg-primary)] rounded-3xl border border-[var(--border)] backdrop-blur-xl"
+        >
+            <div class="mb-4">
+                <img
+                    src={theme === "light" ? "./logo-light.png" : "./logo.png"}
+                    alt="Logo"
+                    class="w-full h-full rounded-xl shadow-lg shadow-green-500/20"
+                />
             </div>
 
-            <div class="panel-content">
+            <!-- Nav Buttons -->
+            <button
+                class="w-full h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group relative {activeTab ===
+                'home'
+                    ? 'bg-[var(--text-primary)] text-[var(--bg-primary)] shadow-lg shadow-white/20'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)]'}"
+                onclick={() => (activeTab = "home")}
+                title="Home"
+            >
+                <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    ><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg
+                >
+                {#if activeTab === "home"}
+                    <div
+                        class="absolute -right-3 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-l-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                    ></div>
+                {/if}
+            </button>
+
+            <button
+                class="w-full h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group relative {activeTab ===
+                'playlists'
+                    ? 'bg-[var(--text-primary)] text-[var(--bg-primary)] shadow-lg shadow-white/20'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)]'}"
+                onclick={() => (activeTab = "playlists")}
+                title="Library"
+            >
+                <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    ><path
+                        d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"
+                    /></svg
+                >
+                {#if activeTab === "playlists"}
+                    <div
+                        class="absolute -right-3 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-l-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                    ></div>
+                {/if}
+            </button>
+
+            <div class="flex-1"></div>
+
+            <button
+                class="w-full h-14 rounded-2xl flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)] transition-all duration-300"
+                onclick={openSettings}
+                title="Settings"
+            >
+                <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    ><path
+                        d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+                    /></svg
+                >
+            </button>
+        </div>
+
+        <!-- CENTER PANEL (Main Content) -->
+        <div class="flex flex-col gap-4 min-h-0 overflow-hidden relative">
+            <!-- Glass Container -->
+            <div
+                class="flex-1 overflow-hidden bg-[var(--bg-primary)] rounded-3xl border border-[var(--border)] backdrop-blur-xl relative transition-all duration-500"
+            >
                 {#if activeTab === "home"}
                     <Home
                         history={listeningHistory}
                         {currentTrack}
                         bind:showSearch
                         onPlay={(track) => {
-                            // Check if track already exists in queue
                             const existingIndex = queue.findIndex(
                                 (t) => t.id === track.id,
                             );
                             if (existingIndex !== -1) {
-                                // Track already in queue - just play it
                                 playTrack(existingIndex);
                             } else {
-                                // Manual play of new track - clear auto-recs first
                                 clearAutoRecommendations();
-                                // Add to queue and play
                                 queue = [...queue, track];
                                 playTrack(queue.length - 1);
                             }
@@ -596,71 +721,113 @@
             </div>
         </div>
 
-        <div class="center-panel">
-            <Player
-                bind:this={playerComponent}
-                bind:currentTrack
-                bind:queue
-                bind:currentTime
-                bind:analyser
-                onTrackEnd={handleTrackEnd}
-                onNext={handleNext}
-                onPrevious={handlePrevious}
-            />
+        <!-- RIGHT PANEL (Now Playing) -->
+        <div class="flex flex-col gap-4 min-h-0 overflow-hidden">
+            <!-- Circular Player -->
+            <div
+                class="bg-[var(--bg-primary)] rounded-3xl border border-[var(--border)] backdrop-blur-xl p-6 flex flex-col items-center justify-center transition-all duration-500"
+            >
+                <Player
+                    bind:this={playerComponent}
+                    bind:currentTrack
+                    bind:queue
+                    bind:currentTime
+                    bind:analyser
+                    onTrackEnd={handleTrackEnd}
+                    onNext={handleNext}
+                    onPrevious={handlePrevious}
+                />
+            </div>
 
-            <Lyrics
-                {currentTrack}
-                {currentTime}
-                {analyser}
-                {visualizerEnabled}
-            />
+            <!-- Tabs (Queue/Lyrics) -->
+            <div
+                class="flex-1 flex flex-col overflow-hidden relative bg-[var(--bg-primary)] rounded-3xl border border-[var(--border)]"
+            >
+                <!-- Panel Toggles -->
+                <div class="flex p-2 gap-2 border-b border-[var(--border)]">
+                    <button
+                        class="flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all {showLyrics
+                            ? 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+                            : 'bg-[var(--bg-active)] text-[var(--text-primary)]'}"
+                        onclick={() => (showLyrics = false)}>Queue</button
+                    >
+                    <button
+                        class="flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all {!showLyrics
+                            ? 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+                            : 'bg-[var(--bg-active)] text-[var(--text-primary)]'}"
+                        onclick={() => (showLyrics = true)}>Lyrics</button
+                    >
+                </div>
+
+                <div class="flex-1 overflow-hidden relative">
+                    {#if showLyrics}
+                        <Lyrics
+                            {currentTrack}
+                            {currentTime}
+                            {analyser}
+                            {visualizerEnabled}
+                        />
+                    {:else}
+                        <Queue
+                            {queue}
+                            {currentIndex}
+                            {autoQueueTrackIds}
+                            onPlay={playTrack}
+                            onRemove={removeFromQueue}
+                            onClear={clearQueue}
+                            onSave={openPlaylistModal}
+                        />
+                    {/if}
+                </div>
+            </div>
         </div>
+    </main>
 
-        <div class="right-panel">
-            <Queue
-                {queue}
-                {currentIndex}
-                {autoQueueTrackIds}
-                onPlay={playTrack}
-                onRemove={removeFromQueue}
-                onClear={clearQueue}
-                onSave={openPlaylistModal}
-            />
-        </div>
-    </div>
-
+    <!-- Modals -->
     {#if showSaveToPlaylistModal}
         <div
-            class="modal-overlay"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
             role="button"
             tabindex="0"
             onclick={closePlaylistModal2}
             onkeydown={(e) => e.key === "Escape" && closePlaylistModal2()}
         >
             <div
-                class="modal"
+                class="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-2xl p-6 w-full max-w-sm shadow-2xl relative overflow-hidden"
                 role="dialog"
                 onclick={(e) => e.stopPropagation()}
                 onkeydown={(e) => e.stopPropagation()}
                 tabindex="-1"
             >
-                <h3>Save to Playlist</h3>
-                <div class="modal-list">
+                <h3 class="text-xl font-bold mb-4 text-[var(--text-primary)]">
+                    Save to Playlist
+                </h3>
+                <div
+                    class="flex flex-col gap-2 max-h-60 overflow-y-auto mb-4 custom-scrollbar"
+                >
                     {#if playlists.length === 0}
-                        <p>No local playlists found.</p>
+                        <p class="text-neutral-500 text-center py-4">
+                            No local playlists found.
+                        </p>
                     {:else}
                         {#each playlists as playlist}
                             <button
-                                class="playlist-btn"
+                                class="text-left px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm text-neutral-200"
                                 onclick={() => saveToPlaylist(playlist.id)}
                             >
-                                {playlist.name} ({playlist.tracks.length} tracks)
+                                <span class="font-medium text-white block"
+                                    >{playlist.name}</span
+                                >
+                                <span class="text-xs text-neutral-500"
+                                    >{playlist.tracks.length} tracks</span
+                                >
                             </button>
                         {/each}
                     {/if}
                 </div>
-                <button class="btn-cancel" onclick={closePlaylistModal2}
-                    >Cancel</button
+                <button
+                    class="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium transition-colors"
+                    onclick={closePlaylistModal2}>Cancel</button
                 >
             </div>
         </div>
@@ -699,222 +866,3 @@
 
     <Toast />
 </main>
-
-<style>
-    main {
-        height: 100vh;
-        padding: var(--spacing-lg);
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        box-sizing: border-box;
-    }
-
-    header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: var(--spacing-md);
-        flex-shrink: 0;
-    }
-
-    .logo-container {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-md);
-    }
-
-    .app-logo {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-    }
-
-    .icon-btn {
-        background: transparent;
-        border: none;
-        color: var(--text-secondary);
-        cursor: pointer;
-        padding: var(--spacing-sm);
-        border-radius: var(--radius-sm);
-        transition: all var(--transition-fast);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .icon-btn:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
-    }
-
-    .layout {
-        display: grid;
-        grid-template-columns: 1fr 2fr 1fr;
-        gap: var(--spacing-sm); /* Tight spacing everywhere */
-        flex: 1;
-        min-height: 0;
-        min-width: 900px; /* Prevent layout collapse */
-    }
-
-    .left-panel,
-    .center-panel,
-    .right-panel {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-sm); /* Tight internal spacing */
-        overflow: hidden;
-        min-width: 0; /* Allow flex shrink */
-    }
-
-    .center-panel {
-        gap: var(--spacing-sm);
-        min-width: 400px;
-        display: flex;
-        flex-direction: column;
-        height: 100%; /* Tambah ini */
-        overflow: hidden;
-    }
-
-    .left-panel {
-        margin-top: 2px;
-        min-width: 250px;
-        /* Gap covered by general rule */
-    }
-    .right-panel {
-        min-width: 250px;
-    }
-
-    @media (max-width: 1200px) {
-        .layout {
-            grid-template-columns: 300px 1fr 300px;
-            min-width: 800px;
-        }
-    }
-
-    @media (max-width: 900px) {
-        .layout {
-            grid-template-columns: 1fr 1.5fr;
-            min-width: 600px;
-        }
-
-        .right-panel {
-            grid-column: 1 / -1;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .layout {
-            grid-template-columns: 1fr;
-        }
-
-        .left-panel,
-        .center-panel,
-        .right-panel {
-            grid-column: 1;
-        }
-    }
-    .tabs {
-        display: flex;
-        gap: var(--spacing-sm);
-        margin-bottom: 0; /* Remove margin, rely on parent flex gap */
-        background: var(--bg-tertiary);
-        padding: 4px;
-        border-radius: var(--radius-md);
-    }
-
-    .tab-btn {
-        flex: 1;
-        background: transparent;
-        border: none;
-        color: var(--text-secondary);
-        padding: 8px;
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-
-    .tab-btn.active {
-        background: var(--bg-secondary);
-        color: var(--text-primary);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .panel-content {
-        flex: 1;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-    }
-
-    /* Modal Styles */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 1000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        backdrop-filter: blur(4px);
-    }
-
-    .modal {
-        background: var(--bg-secondary);
-        width: 90%;
-        max-width: 400px;
-        padding: var(--spacing-lg);
-        border-radius: var(--radius-lg);
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-        border: 1px solid var(--border);
-    }
-
-    .modal h3 {
-        margin: 0 0 var(--spacing-md) 0;
-    }
-
-    .modal-list {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-xs);
-        max-height: 300px;
-        overflow-y: auto;
-        margin-bottom: var(--spacing-md);
-    }
-
-    .playlist-btn {
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border);
-        color: var(--text-primary);
-        padding: var(--spacing-sm);
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        text-align: left;
-        transition: all var(--transition-fast);
-    }
-
-    .playlist-btn:hover {
-        background: var(--bg-hover);
-        border-color: var(--accent);
-    }
-
-    .btn-cancel {
-        width: 100%;
-        background: transparent;
-        border: 1px solid var(--border);
-        color: var(--text-secondary);
-        padding: var(--spacing-sm);
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        transition: all var(--transition-fast);
-    }
-
-    .btn-cancel:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
-    }
-</style>

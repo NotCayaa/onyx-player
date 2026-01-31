@@ -80,105 +80,148 @@
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div
-        class="modal-backdrop"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-4"
         onclick={handleBackdropClick}
         transition:fade={{ duration: 200 }}
     >
         <div
-            class="modal"
+            class="bg-[var(--bg-secondary)] border border-[var(--border)] backdrop-blur-3xl rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-[slideUp_0.4s]"
             onclick={(e) => e.stopPropagation()}
             transition:fly={{ y: 30, duration: 300 }}
         >
-            <div class="modal-header">
-                <h1>Welcome to Onyx Player</h1>
-                <p>Start listening to your favorite music</p>
-                <button class="close-btn" onclick={close} aria-label="Close">
+            <!-- Header -->
+            <div
+                class="p-8 pb-4 text-center relative border-b border-[var(--border-light)]"
+            >
+                <button
+                    class="absolute top-4 right-4 p-2 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                    onclick={close}
+                    aria-label="Close"
+                >
                     <svg
                         width="24"
                         height="24"
                         viewBox="0 0 24 24"
                         fill="currentColor"
-                    >
-                        <path
+                        ><path
                             d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                        />
-                    </svg>
+                        /></svg
+                    >
                 </button>
+                <h1
+                    class="text-3xl font-bold text-[var(--text-primary)] mb-2 tracking-tight"
+                >
+                    Welcome to Onyx
+                </h1>
+                <p class="text-[var(--text-secondary)]">
+                    Start listening to your favorite music
+                </p>
             </div>
 
-            <div class="modal-content">
-                <!-- Quick Search -->
-                <section class="search-section">
-                    <h3>Quick Search</h3>
-                    <div class="search-tabs">
-                        <button
-                            class="tab-btn {searchType === 'spotify'
-                                ? 'active'
-                                : ''}"
-                            onclick={() => (searchType = "spotify")}
+            <!-- Scrollable Content -->
+            <div
+                class="flex-1 overflow-y-auto p-8 pt-6 flex flex-col gap-8 custom-scrollbar"
+            >
+                <!-- Search Section -->
+                <section class="flex flex-col gap-4">
+                    <div class="flex items-center justify-between">
+                        <h3
+                            class="text-lg font-bold text-[var(--text-primary)]"
                         >
-                            Spotify
-                        </button>
-                        <button
-                            class="tab-btn {searchType === 'youtube'
-                                ? 'active'
-                                : ''}"
-                            onclick={() => (searchType = "youtube")}
+                            Quick Search
+                        </h3>
+                        <!-- Search Type Toggle -->
+                        <div
+                            class="flex p-1 bg-[var(--bg-tertiary)] rounded-lg border border-[var(--border-light)] filter backdrop-blur-md"
                         >
-                            YouTube
-                        </button>
+                            <button
+                                class="px-3 py-1 text-xs font-semibold rounded-md transition-all {searchType ===
+                                'spotify'
+                                    ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm'
+                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}"
+                                onclick={() => (searchType = "spotify")}
+                            >
+                                Spotify
+                            </button>
+                            <button
+                                class="px-3 py-1 text-xs font-semibold rounded-md transition-all {searchType ===
+                                'youtube'
+                                    ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm'
+                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}"
+                                onclick={() => (searchType = "youtube")}
+                            >
+                                YouTube
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="search-input-wrapper">
-                        <input
-                            type="text"
-                            placeholder={searchPlaceholder}
-                            bind:value={searchQuery}
-                            onkeydown={(e) =>
-                                e.key === "Enter" && handleSearch()}
-                            class="search-input"
-                        />
-                        <button onclick={handleSearch} class="search-btn">
+                    <div class="flex gap-2">
+                        <div class="relative flex-1 group">
+                            <input
+                                type="text"
+                                placeholder={searchPlaceholder}
+                                bind:value={searchQuery}
+                                onkeydown={(e) =>
+                                    e.key === "Enter" && handleSearch()}
+                                class="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded-xl px-4 py-3 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-light)] focus:bg-[var(--bg-secondary)] transition-all font-sans"
+                            />
+                            <div
+                                class="absolute inset-0 rounded-xl ring-1 ring-[var(--border-light)] pointer-events-none group-focus-within:ring-[var(--border)] transition-all"
+                            ></div>
+                        </div>
+                        <button
+                            onclick={handleSearch}
+                            class="bg-[var(--text-primary)] text-[var(--bg-primary)] px-6 py-3 rounded-xl font-bold hover:bg-[var(--text-secondary)] active:scale-95 transition-all shadow-lg"
+                        >
                             Search
                         </button>
                     </div>
 
                     {#if isSearching}
-                        <div class="loading">
-                            <div class="spinner"></div>
-                            <p>Searching...</p>
+                        <div
+                            class="flex flex-col items-center justify-center py-8 gap-3 text-neutral-500"
+                        >
+                            <div
+                                class="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"
+                            ></div>
+                            <span class="text-sm">Searching...</span>
                         </div>
                     {:else if searchResults.length > 0}
-                        <div class="search-results">
+                        <div class="flex flex-col gap-2 mt-2">
                             {#each searchResults.slice(0, 5) as track}
-                                <div class="result-item">
+                                <div
+                                    class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all group"
+                                >
                                     <img
                                         src={track.albumArt}
                                         alt={track.name}
-                                        class="result-art"
+                                        class="w-12 h-12 rounded-lg object-cover shadow-sm"
                                     />
-                                    <div class="result-info">
-                                        <div class="result-name">
+                                    <div class="flex-1 min-w-0">
+                                        <div
+                                            class="text-[var(--text-primary)] font-medium truncate"
+                                        >
                                             {track.name}
                                         </div>
-                                        <div class="result-artist">
+                                        <div
+                                            class="text-sm text-[var(--text-secondary)] truncate"
+                                        >
                                             {track.artists}
                                         </div>
                                     </div>
                                     <button
                                         onclick={() =>
                                             handleTrackSelect(track, "play")}
-                                        class="play-btn"
-                                        aria-label="Play {track.name}"
+                                        class="w-8 h-8 rounded-full bg-[var(--text-primary)] text-[var(--bg-primary)] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"
+                                        aria-label="Play"
                                     >
                                         <svg
-                                            width="18"
-                                            height="18"
+                                            width="14"
+                                            height="14"
                                             viewBox="0 0 24 24"
                                             fill="currentColor"
+                                            ><path d="M8 5v14l11-7z" /></svg
                                         >
-                                            <path d="M8 5v14l11-7z" />
-                                        </svg>
                                     </button>
                                 </div>
                             {/each}
@@ -188,33 +231,54 @@
 
                 <!-- Recent Playlists -->
                 {#if playlists.length > 0}
-                    <section class="playlists-section">
-                        <h3>Your Playlists</h3>
-                        <div class="playlist-list">
-                            {#each playlists.slice(0, 5) as playlist}
+                    <section class="flex flex-col gap-3">
+                        <h3
+                            class="text-lg font-bold text-[var(--text-primary)]"
+                        >
+                            Your Playlists
+                        </h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            {#each playlists.slice(0, 4) as playlist}
                                 <button
-                                    class="playlist-item"
+                                    class="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-light)] hover:bg-[var(--bg-hover)] hover:border-[var(--border)] transition-all text-left group"
                                     onclick={() =>
                                         handlePlaylistClick(playlist)}
                                 >
-                                    <span class="playlist-icon">
-                                        <svg
-                                            width="20"
-                                            height="20"
-                                            viewBox="0 0 24 24"
-                                            fill="currentColor"
+                                    {#if playlist.coverPath || (playlist.tracks && playlist.tracks.length > 0 && playlist.tracks[0].albumArt)}
+                                        <img
+                                            src={playlist.coverPath
+                                                ? `http://localhost:3000${playlist.coverPath}`
+                                                : playlist.tracks[0].albumArt}
+                                            alt={playlist.name}
+                                            class="w-10 h-10 rounded-lg object-cover shadow-sm"
+                                        />
+                                    {:else}
+                                        <div
+                                            class="w-10 h-10 rounded-lg bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors"
                                         >
-                                            <path
-                                                d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"
-                                            />
-                                        </svg>
-                                    </span>
-                                    <span class="playlist-name">
-                                        {playlist.name}
-                                    </span>
-                                    <span class="playlist-count">
-                                        ({playlist.tracks?.length || 0})
-                                    </span>
+                                            <svg
+                                                width="20"
+                                                height="20"
+                                                viewBox="0 0 24 24"
+                                                fill="currentColor"
+                                                ><path
+                                                    d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"
+                                                /></svg
+                                            >
+                                        </div>
+                                    {/if}
+                                    <div class="flex-1 min-w-0">
+                                        <div
+                                            class="text-[var(--text-primary)] font-medium truncate text-sm"
+                                        >
+                                            {playlist.name}
+                                        </div>
+                                        <div
+                                            class="text-xs text-[var(--text-secondary)]"
+                                        >
+                                            {playlist.tracks?.length || 0} tracks
+                                        </div>
+                                    </div>
                                 </button>
                             {/each}
                         </div>
@@ -222,13 +286,25 @@
                 {/if}
             </div>
 
-            <div class="modal-footer">
-                <label class="checkbox-label">
-                    <input type="checkbox" bind:checked={dontShowAgain} />
-                    <span>Don't show this again</span>
+            <!-- Footer -->
+            <div
+                class="p-6 border-t border-[var(--border-light)] bg-[var(--bg-tertiary)] flex items-center justify-between"
+            >
+                <label
+                    class="flex items-center gap-2 cursor-pointer text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                >
+                    <input
+                        type="checkbox"
+                        bind:checked={dontShowAgain}
+                        class="rounded border-[var(--border-light)] bg-[var(--bg-secondary)] checked:bg-[var(--text-primary)] text-[var(--bg-primary)] focus:ring-0 checked:border-[var(--text-primary)]"
+                    />
+                    <span>Don't show for now</span>
                 </label>
-                <button class="browse-btn" onclick={() => close("browse")}>
-                    Browse Library
+                <button
+                    class="text-[var(--text-primary)] hover:text-[var(--text-primary)]/80 font-medium text-sm px-4 py-2 rounded-lg hover:bg-[var(--bg-hover)] transition-all border border-transparent hover:border-[var(--border-light)]"
+                    onclick={() => close("browse")}
+                >
+                    Browse Full Library →
                 </button>
             </div>
         </div>
@@ -236,31 +312,22 @@
 {/if}
 
 <style>
-    .modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.85);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 2000;
+    /* Custom Scrollbar for this component */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
     }
 
-    .modal {
-        background: var(--bg-secondary);
-        border-radius: var(--radius-lg);
-        width: 90%;
-        max-width: 600px;
-        max-height: 80vh;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        animation: slideUp 0.4s;
-    }
-
+    /* Animation */
     @keyframes slideUp {
         from {
             transform: translateY(30px);
@@ -270,284 +337,5 @@
             transform: translateY(0);
             opacity: 1;
         }
-    }
-
-    .modal-header {
-        position: relative;
-        padding: var(--spacing-xl);
-        text-align: center;
-        border-bottom: 1px solid var(--bg-tertiary);
-    }
-
-    .close-btn {
-        position: absolute;
-        top: var(--spacing-md);
-        right: var(--spacing-md);
-        background: none;
-        border: none;
-        color: var(--text-secondary);
-        cursor: pointer;
-        padding: var(--spacing-xs);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: var(--radius-sm);
-        transition: all 0.2s;
-    }
-
-    .close-btn:hover {
-        background: var(--bg-tertiary);
-        color: var(--text-primary);
-    }
-
-    h1 {
-        margin: 0 0 var(--spacing-sm) 0;
-        font-size: 2rem;
-        color: var(--text-primary);
-    }
-
-    .modal-header p {
-        margin: 0;
-        color: var(--text-secondary);
-        font-size: 1rem;
-    }
-
-    .modal-content {
-        overflow-y: auto;
-        padding: var(--spacing-lg);
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-xl);
-    }
-
-    section {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-md);
-    }
-
-    h3 {
-        margin: 0;
-        font-size: 1.1rem;
-        color: var(--text-primary);
-    }
-
-    .search-tabs {
-        display: flex;
-        gap: var(--spacing-sm);
-        background: var(--bg-tertiary);
-        padding: 4px;
-        border-radius: var(--radius-md);
-    }
-
-    .tab-btn {
-        flex: 1;
-        background: transparent;
-        border: none;
-        color: var(--text-secondary);
-        padding: 8px;
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-
-    .tab-btn.active {
-        background: var(--bg-secondary);
-        color: var(--text-primary);
-    }
-
-    .search-input-wrapper {
-        display: flex;
-        gap: var(--spacing-sm);
-    }
-
-    .search-input {
-        flex: 1;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border);
-        color: var(--text-primary);
-        padding: var(--spacing-sm) var(--spacing-md);
-        border-radius: var(--radius-md);
-        font-size: 1rem;
-    }
-
-    .search-input:focus {
-        outline: none;
-        border-color: var(--accent-primary);
-    }
-
-    .search-btn {
-        background: var(--accent-primary);
-        color: white;
-        border: none;
-        padding: var(--spacing-sm) var(--spacing-lg);
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-
-    .search-btn:hover {
-        background: var(--accent-hover);
-    }
-
-    .loading {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: var(--spacing-xl);
-        gap: var(--spacing-md);
-    }
-
-    .search-results {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-xs);
-        max-height: 200px;
-        overflow-y: auto;
-    }
-
-    .result-item {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-sm);
-        padding: var(--spacing-sm);
-        background: var(--bg-tertiary);
-        border-radius: var(--radius-sm);
-        transition: background 0.2s;
-    }
-
-    .result-item:hover {
-        background: var(--bg-hover);
-    }
-
-    .result-art {
-        width: 40px;
-        height: 40px;
-        border-radius: var(--radius-sm);
-        object-fit: cover;
-    }
-
-    .result-info {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .result-name {
-        font-weight: 500;
-        color: var(--text-primary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .result-artist {
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .play-btn {
-        background: var(--accent-primary);
-        color: white;
-        border: none;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-    }
-
-    .play-btn:hover {
-        transform: scale(1.1);
-        background: var(--accent-hover);
-    }
-
-    .playlist-list {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-xs);
-    }
-
-    .playlist-item {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-sm);
-        padding: var(--spacing-sm) var(--spacing-md);
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        text-align: left;
-        transition: all 0.2s;
-    }
-
-    .playlist-item:hover {
-        background: var(--bg-hover);
-        border-color: var(--accent-primary);
-    }
-
-    .playlist-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--text-secondary);
-    }
-
-    .playlist-name {
-        flex: 1;
-        color: var(--text-primary);
-        font-weight: 500;
-    }
-
-    .playlist-count {
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-    }
-
-    .modal-footer {
-        padding: var(--spacing-lg);
-        border-top: 1px solid var(--bg-tertiary);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-sm);
-        cursor: pointer;
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-    }
-
-    .checkbox-label input {
-        cursor: pointer;
-        accent-color: var(--accent-primary);
-    }
-
-    .browse-btn {
-        background: var(--accent-primary);
-        color: white;
-        border: none;
-        padding: var(--spacing-sm) var(--spacing-xl);
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        font-weight: 500;
-        font-size: 1rem;
-        transition: all 0.2s;
-    }
-
-    .browse-btn:hover {
-        background: var(--accent-hover);
-        transform: translateY(-1px);
     }
 </style>

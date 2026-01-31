@@ -109,6 +109,7 @@
       audioMotion = new AudioMotionAnalyzer(container, {
         source: analyser,
         audioCtx: audioCtx,
+        connectSpeakers: false, // IMPORTANT: Don't connect to speakers, let gainNode handle audio output
         mode: 10, // Mode 10 = waveform
         gradient: "classic",
         showScaleX: false,

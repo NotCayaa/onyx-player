@@ -13,39 +13,82 @@
   }
 </script>
 
-<div class="queue">
-  <div class="queue-header">
-    <h2>Queue ({queue.length})</h2>
+<div class="flex flex-col h-full p-4">
+  <div class="flex justify-between items-center mb-3 flex-shrink-0">
+    <span class="text-[var(--text-muted)] text-sm">{queue.length} tracks</span>
     {#if queue.length > 0}
-      <button class="btn-secondary" onclick={onClear}>Clear</button>
+      <button
+        class="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-hover)] hover:bg-[var(--bg-active)] px-3 py-1.5 rounded-lg transition-colors"
+        onclick={onClear}
+      >
+        Clear All
+      </button>
     {/if}
   </div>
 
-  <div class="queue-list">
+  <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-1 pr-1">
     {#if queue.length > 0}
       {#each queue as track, index}
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div
-          class="queue-item"
-          class:active={index === currentIndex}
-          class:auto-queued={isAutoQueued(track.id)}
+          class="group relative flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-all border border-transparent
+                 {index === currentIndex
+            ? 'bg-[var(--bg-active)] border-[var(--border)] shadow-lg'
+            : 'hover:bg-[var(--bg-hover)]'}
+                 {isAutoQueued(track.id)
+            ? 'pl-1 border-l-2 border-l-[var(--text-muted)] bg-[var(--bg-hover)]'
+            : ''}"
           onclick={() => onPlay(index, true)}
-          onkeydown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onPlay(index, true);
-            }
-          }}
           role="button"
           tabindex="0"
         >
-          <img src={track.albumArt} alt={track.name} class="track-thumb" />
-          <div class="track-info">
-            <div class="track-name">{track.name}</div>
-            <div class="track-artist">{track.artists}</div>
+          <!-- Thumb -->
+          <div
+            class="relative w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-[var(--bg-secondary)]"
+          >
+            <img
+              src={track.albumArt}
+              alt={track.name}
+              class="w-full h-full object-cover"
+            />
+            {#if index === currentIndex}
+              <div
+                class="absolute inset-0 bg-black/40 flex items-center justify-center"
+              >
+                <div
+                  class="w-1 h-3 bg-[var(--text-primary)] mx-[1px] animate-[bounce_1s_infinite]"
+                ></div>
+                <div
+                  class="w-1 h-4 bg-[var(--text-primary)] mx-[1px] animate-[bounce_1.2s_infinite]"
+                ></div>
+                <div
+                  class="w-1 h-2 bg-[var(--text-primary)] mx-[1px] animate-[bounce_0.8s_infinite]"
+                ></div>
+              </div>
+            {/if}
           </div>
-          <div class="item-actions">
+
+          <!-- Info -->
+          <div class="flex-1 min-w-0 flex flex-col justify-center">
+            <div
+              class="text-sm font-medium truncate {index === currentIndex
+                ? 'text-[var(--text-primary)]'
+                : 'text-[var(--text-secondary)]'}"
+            >
+              {track.name}
+            </div>
+            <div class="text-xs text-[var(--text-muted)] truncate">
+              {track.artists}
+            </div>
+          </div>
+
+          <!-- Actions (Hover Only) -->
+          <div
+            class="absolute right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--bg-secondary)] backdrop-blur-sm rounded-lg p-1 backdrop-filter"
+          >
             <button
-              class="btn-icon save-btn"
+              class="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-md hover:bg-[var(--bg-hover)] transition-colors"
               onclick={(e) => {
                 e.stopPropagation();
                 onSave(track);
@@ -53,18 +96,17 @@
               title="Save to Playlist"
             >
               <svg
-                width="16"
-                height="16"
+                width="14"
+                height="14"
                 viewBox="0 0 24 24"
                 fill="currentColor"
-              >
-                <path
+                ><path
                   d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                />
-              </svg>
+                /></svg
+              >
             </button>
             <button
-              class="btn-icon remove-btn"
+              class="p-1.5 text-[var(--text-muted)] hover:text-red-400 rounded-md hover:bg-[var(--bg-hover)] transition-colors"
               onclick={(e) => {
                 e.stopPropagation();
                 onRemove(index);
@@ -72,163 +114,34 @@
               title="Remove from Queue"
             >
               <svg
-                width="16"
-                height="16"
+                width="14"
+                height="14"
                 viewBox="0 0 24 24"
                 fill="currentColor"
-              >
-                <path
+                ><path
                   d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                />
-              </svg>
+                /></svg
+              >
             </button>
           </div>
         </div>
       {/each}
     {:else}
-      <p class="empty-queue">Queue is empty</p>
+      <div
+        class="flex flex-col items-center justify-center h-40 text-[var(--text-muted)] gap-2"
+      >
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          class="opacity-20"
+          ><path
+            d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"
+          /></svg
+        >
+        <p class="text-sm">Queue is empty</p>
+      </div>
     {/if}
   </div>
 </div>
-
-<style>
-  .queue {
-    background: var(--bg-secondary);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .queue-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .queue-header h2 {
-    margin: 0;
-  }
-
-  .queue-list {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-  }
-
-  .queue-item {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: background var(--transition-fast);
-  }
-
-  .queue-item:hover {
-    background: var(--bg-hover);
-  }
-
-  .queue-item.active {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--accent-primary);
-  }
-
-  .track-thumb {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius-sm);
-    object-fit: cover;
-  }
-
-  .track-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .track-name {
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .track-artist {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .item-actions {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0 var(--spacing-sm);
-    background: linear-gradient(
-      to right,
-      transparent 0%,
-      var(--bg-secondary) 20%,
-      var(--bg-secondary) 100%
-    );
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-    pointer-events: none;
-    z-index: 10;
-  }
-
-  .queue-item:hover .item-actions {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .queue-item.active .item-actions {
-    background: linear-gradient(
-      to right,
-      transparent 0%,
-      var(--bg-tertiary) 20%,
-      var(--bg-tertiary) 100%
-    );
-  }
-
-  .btn-icon svg {
-    display: block;
-  }
-
-  .save-btn:hover {
-    color: var(--accent);
-  }
-
-  .remove-btn {
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-  }
-
-  .queue-item:hover .remove-btn {
-    opacity: 1;
-  }
-
-  .empty-queue {
-    text-align: center;
-    padding: var(--spacing-xl);
-    color: var(--text-secondary);
-  }
-
-  /* Auto-queue recommendation styles */
-  .auto-queued {
-    opacity: 0.85;
-    border-left: 2px solid var(--accent-primary);
-  }
-</style>

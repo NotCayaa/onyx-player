@@ -7,12 +7,6 @@
     export let analyser = null; // AudioContext analyser for visualizer
     export let visualizerEnabled = false; // Toggle visualizer background
 
-    // Debug logging
-    $: console.log("[Lyrics] analyser:", analyser);
-    $: console.log("[Lyrics] visualizerEnabled:", visualizerEnabled);
-    $: console.log("[Lyrics] currentTrack:", currentTrack);
-    $: console.log("[Lyrics] albumArt for visualizer:", currentTrack?.image);
-
     let lyrics = "";
     let isLoading = false;
     let error = null;
@@ -63,9 +57,6 @@
                 bestMatch = candidate;
             }
         }
-
-        // If even the best match is > 5 seconds off, it might be wrong.
-        // But for now, we'll be lenient given the "Not Available" issue.
         return bestMatch;
     }
 
@@ -87,8 +78,6 @@
                 currentTrack.artists || currentTrack.artist || "";
             const query = `${cleanedTitle} ${artistName}`;
 
-            console.log(`[Lyrics] Searching for: "${query}"`);
-
             // Try lrclib.net first (supports synced lyrics)
             let results = [];
             let lrclibFailed = false;
@@ -102,13 +91,9 @@
                     results = await res.json();
                     if (!Array.isArray(results)) results = [];
                 } else {
-                    console.warn(
-                        `[Lyrics] lrclib returned status ${res.status}`,
-                    );
                     lrclibFailed = true;
                 }
             } catch (fetchErr) {
-                console.warn(`[Lyrics] lrclib failed:`, fetchErr.message);
                 lrclibFailed = true;
             }
 
@@ -123,8 +108,6 @@
                 durationSec = currentTrack.duration_ms / 1000;
             }
 
-            console.log(`[Lyrics] Target track duration: ${durationSec}s`);
-
             const trackForMatching = {
                 artist: artistName,
                 duration: durationSec || 0,
@@ -133,10 +116,6 @@
             const bestMatch = findBestMatch(results, trackForMatching);
 
             if (bestMatch) {
-                console.log(
-                    `[Lyrics] Found matching lyrics: "${bestMatch.trackName}"`,
-                );
-
                 let data = bestMatch;
 
                 // If search result doesn't have lyrics, try fetching by ID
@@ -149,10 +128,7 @@
                             data = await lyricsRes.json();
                         }
                     } catch (fetchErr) {
-                        console.warn(
-                            "[Lyrics] Failed to fetch by ID:",
-                            fetchErr.message,
-                        );
+                        // ignore
                     }
                 }
 
@@ -164,8 +140,7 @@
                     lyrics = "Lyrics not available";
                 }
             } else if (lrclibFailed || results.length === 0) {
-                // Fallback: Try lyrics.ovh API (plain lyrics only, no API key needed)
-                console.log("[Lyrics] Trying fallback: lyrics.ovh");
+                // Fallback: Try lyrics.ovh API (plain lyrics only)
                 try {
                     const ovhRes = await fetch(
                         `https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(cleanedTitle)}`,
@@ -175,24 +150,16 @@
                         const ovhData = await ovhRes.json();
                         if (ovhData.lyrics) {
                             lyrics = ovhData.lyrics;
-                            console.log(
-                                "[Lyrics] Found lyrics from lyrics.ovh",
-                            );
                         } else {
                             lyrics = "Lyrics not found for this track";
                         }
                     } else {
-                        console.warn(
-                            `[Lyrics] lyrics.ovh returned ${ovhRes.status}`,
-                        );
                         lyrics = "Lyrics not found for this track";
                     }
                 } catch (ovhErr) {
-                    console.warn("[Lyrics] lyrics.ovh failed:", ovhErr.message);
                     lyrics = "Lyrics not found for this track";
                 }
             } else {
-                console.log("[Lyrics] No suitable match found.");
                 lyrics = "Lyrics not found for this track";
             }
         } catch (err) {
@@ -246,7 +213,7 @@
     function scrollToActiveLyric() {
         if (lyricsContainer && activeLyricIndex >= 0) {
             const activeElement =
-                lyricsContainer.querySelector(".lyric-line.active");
+                lyricsContainer.querySelector(".lyric-line-active");
             if (activeElement) {
                 // Use getBoundingClientRect for absolute visual position accuracy
                 const containerRect = lyricsContainer.getBoundingClientRect();
@@ -259,9 +226,7 @@
                 const currentScroll = lyricsContainer.scrollTop;
 
                 // We want the element's center to be at the container's center
-                // target = currentScroll + relativeTop - (containerHalf) + (elementHalf)
-                // Add positive offset to push content UP (because scroll increases downwards)
-                const visualOffset = 70; // black magic
+                const visualOffset = 50; // black magic
                 const targetScrollTop =
                     currentScroll +
                     relativeTop -
@@ -287,10 +252,12 @@
     }
 </script>
 
-<div class="lyrics">
+<div class="flex flex-col h-full overflow-hidden relative p-4">
     <!-- Visualizer Background Layer -->
     {#if visualizerEnabled && analyser}
-        <div class="visualizer-background">
+        <div
+            class="absolute inset-0 z-0 opacity-60 pointer-events-none blur-[0.5px]"
+        >
             <Visualizer
                 {analyser}
                 enabled={true}
@@ -300,165 +267,48 @@
     {/if}
 
     <!-- Lyrics Foreground Layer -->
-    <div class="lyrics-foreground">
-        <h3>Lyrics</h3>
-
-        <div class="lyrics-content" bind:this={lyricsContainer}>
+    <div class="relative z-10 flex flex-col h-full overflow-hidden p-4">
+        <div
+            class="flex-1 overflow-y-auto flex flex-col items-center w-full scrollbar-hide text-center"
+            bind:this={lyricsContainer}
+        >
             {#if isLoading}
-                <div class="loading">
-                    <div class="spinner"></div>
+                <div
+                    class="flex flex-col items-center justify-center p-8 gap-4 text-[var(--text-muted)]"
+                >
+                    <div
+                        class="w-6 h-6 border-2 border-[var(--border)] border-t-[var(--text-primary)] rounded-full animate-spin"
+                    ></div>
                     <p>Loading lyrics...</p>
                 </div>
             {:else if error}
-                <p class="error">{error}</p>
+                <p class="text-red-400 p-8">{error}</p>
             {:else if syncedLyrics.length > 0}
-                <div class="synced-lyrics">
+                <div class="flex flex-col gap-2 w-full pb-32 pt-16">
                     {#each syncedLyrics as line, index}
                         <div
-                            class="lyric-line"
-                            class:active={index === activeLyricIndex}
-                            class:upcoming={index === activeLyricIndex + 1}
+                            class="py-2 px-2 rounded-lg transition-all duration-300 ease-out text-base leading-relaxed
+                                   {index === activeLyricIndex
+                                ? 'lyric-line-active opacity-100 text-xl font-bold text-[var(--text-primary)] scale-105'
+                                : 'opacity-40 text-[var(--text-secondary)]'}
+                                   {index === activeLyricIndex + 1
+                                ? 'opacity-70'
+                                : ''}"
                         >
                             {line.text || "♪"}
                         </div>
                     {/each}
                 </div>
             {:else if lyrics}
-                <pre class="lyrics-text">{lyrics}</pre>
+                <pre
+                    class="font-sans text-base leading-loose whitespace-pre-wrap text-[var(--text-primary)] p-4">{lyrics}</pre>
             {:else if currentTrack}
-                <p class="no-lyrics">No lyrics available</p>
+                <p class="text-[var(--text-muted)] p-8">No lyrics available</p>
             {:else}
-                <p class="no-lyrics">Play a track to see lyrics</p>
+                <p class="text-[var(--text-muted)] p-8">
+                    Play a track to see lyrics
+                </p>
             {/if}
         </div>
     </div>
 </div>
-
-<style>
-    .lyrics {
-        background: var(--bg-secondary);
-        border-radius: var(--radius-lg);
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        overflow: hidden;
-        position: relative;
-        flex: 1 1 auto;
-        min-height: 0;
-    }
-
-    .visualizer-background {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0.6;
-        pointer-events: none;
-        z-index: 0;
-        border-radius: var(--radius-lg);
-        overflow: hidden;
-        filter: blur(0.5px);
-    }
-
-    .lyrics-foreground {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-md);
-        height: 100%;
-        overflow: hidden;
-        padding: var(--spacing-md);
-    }
-
-    /* Hide scrollbar for Chrome, Safari and Opera */
-    .lyrics-content::-webkit-scrollbar {
-        display: none;
-    }
-
-    /* Hide scrollbar for IE, Edge and Firefox */
-    .lyrics-content {
-        -ms-overflow-style: none; /* IE and Edge */
-        scrollbar-width: none; /* Firefox */
-    }
-
-    h3 {
-        margin: 0;
-    }
-
-    .lyrics-content {
-        flex: 1;
-        overflow-y: auto;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 100%;
-        position: relative;
-    }
-
-    .loading {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: var(--spacing-xl);
-        gap: var(--spacing-md);
-        margin: auto;
-    }
-
-    .lyrics-text {
-        font-family: inherit;
-        font-size: 1rem;
-        line-height: 2;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        color: var(--text-primary);
-        margin: auto; /* Centers content */
-        padding: 0; /* User requested removal */
-    }
-
-    .no-lyrics,
-    .error {
-        text-align: center;
-        padding: var(--spacing-xl);
-        color: var(--text-secondary);
-        margin: auto; /* Centers content */
-    }
-
-    .error {
-        color: #ff6b6b;
-    }
-
-    .synced-lyrics {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-sm);
-        width: 100%;
-        flex-shrink: 0;
-        margin: auto;
-    }
-
-    .lyric-line {
-        padding: var(--spacing-sm);
-        border-radius: var(--radius-sm);
-        transition: all 0.3s ease;
-        opacity: 0.4;
-        font-size: 1rem;
-        line-height: 1.6;
-        text-align: center;
-    }
-
-    .lyric-line.active {
-        opacity: 1;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--accent);
-        transform: scale(1.05);
-    }
-
-    .lyric-line.upcoming {
-        opacity: 0.7;
-    }
-</style>

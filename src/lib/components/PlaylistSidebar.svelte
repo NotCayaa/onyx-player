@@ -118,20 +118,25 @@
     }
 </script>
 
-<div class="playlist-sidebar">
-    <div class="header">
-        <h3>Your Playlists</h3>
-        <div class="header-actions">
+<div class="flex flex-col h-full w-full overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center justify-between p-4 pb-2">
+        <h3
+            class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest pl-2"
+        >
+            Playlists
+        </h3>
+        <div class="flex gap-1">
             <button
-                class="btn-icon"
+                class="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)] transition-all"
                 aria-label="Edit Playlists"
                 onclick={() => (editMode = !editMode)}
                 title={editMode ? "Done Editing" : "Edit Playlists"}
             >
                 {#if editMode}
                     <svg
-                        width="20"
-                        height="20"
+                        width="18"
+                        height="18"
                         viewBox="0 0 24 24"
                         fill="currentColor"
                     >
@@ -141,8 +146,8 @@
                     </svg>
                 {:else}
                     <svg
-                        width="20"
-                        height="20"
+                        width="18"
+                        height="18"
                         viewBox="0 0 24 24"
                         fill="currentColor"
                     >
@@ -153,14 +158,14 @@
                 {/if}
             </button>
             <button
-                class="btn-icon"
+                class="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)] transition-all"
                 aria-label="Create Playlist"
                 onclick={() => (isCreating = !isCreating)}
                 title="Create New Playlist"
             >
                 <svg
-                    width="20"
-                    height="20"
+                    width="18"
+                    height="18"
                     viewBox="0 0 24 24"
                     fill="currentColor"
                 >
@@ -170,77 +175,119 @@
         </div>
     </div>
 
+    <!-- Create Form -->
     {#if isCreating}
-        <div class="create-form">
+        <div
+            class="mx-4 mb-2 p-1 bg-[var(--bg-hover)] rounded-lg flex items-center border border-[var(--border)]"
+        >
+            <!-- svelte-ignore a11y-autofocus -->
             <input
                 type="text"
-                placeholder="Playlist Name"
+                placeholder="Name..."
                 bind:value={newPlaylistName}
                 onkeydown={(e) => e.key === "Enter" && createPlaylist()}
-                class="input-text"
+                class="flex-1 bg-transparent border-none text-[var(--text-primary)] text-sm px-2 py-1 focus:outline-none placeholder:text-[var(--text-muted)]"
+                autoFocus
             />
-            <button class="btn-text" onclick={createPlaylist}>Add</button>
+            <button
+                class="bg-[var(--text-primary)] text-[var(--bg-primary)] px-3 py-1 rounded text-xs font-bold hover:opacity-80 transition-opacity"
+                onclick={createPlaylist}
+            >
+                Add
+            </button>
         </div>
     {/if}
 
-    <div class="playlist-list">
+    <!-- Playlist List -->
+    <div
+        class="flex-1 overflow-y-auto px-2 pb-4 flex flex-col gap-0.5 custom-scrollbar w-full"
+    >
         {#if playlists.length === 0}
-            <div class="empty-state">No playlists yet</div>
+            <div
+                class="text-center p-4 text-sm text-[var(--text-muted)] italic"
+            >
+                No playlists yet
+            </div>
         {:else}
             {#each playlists as playlist}
-                <div class="playlist-item">
+                <!-- svelte-ignore a11y-click-events-have-key-events -->
+                <!-- svelte-ignore a11y-no-static-element-interactions -->
+                <div
+                    class="group relative flex items-center rounded-xl bg-[var(--bg-hover)] border border-[var(--border)] hover:border-[var(--border-light)] hover:bg-[var(--bg-active)] transition-all p-2 cursor-pointer mb-2"
+                    class:bg-white-10={false}
+                >
                     <button
-                        class="playlist-name"
+                        class="flex-1 flex items-center gap-3 text-left overflow-hidden"
                         onclick={() => viewPlaylist(playlist)}
                     >
-                        <span class="icon">
-                            {#if playlist.type === "link"}
-                                <svg
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="currentColor"
-                                >
-                                    <path
-                                        d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"
-                                    />
-                                </svg>
-                            {:else}
-                                <svg
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="currentColor"
-                                >
-                                    <path
-                                        d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"
-                                    />
-                                </svg>
-                            {/if}
+                        <!-- Cover/Icon -->
+                        {#if playlist.type !== "link" && (playlist.coverPath || (playlist.tracks && playlist.tracks.length > 0 && playlist.tracks[0].albumArt))}
+                            <img
+                                src={playlist.coverPath
+                                    ? `http://localhost:3000${playlist.coverPath}`
+                                    : playlist.tracks[0].albumArt}
+                                alt={playlist.name}
+                                class="w-14 h-14 rounded-lg object-cover shadow-md flex-shrink-0"
+                            />
+                        {:else}
+                            <div
+                                class="w-14 h-14 rounded-lg bg-[var(--bg-active)] flex items-center justify-center flex-shrink-0 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors"
+                            >
+                                {#if playlist.type === "link"}
+                                    <svg
+                                        width="28"
+                                        height="28"
+                                        viewBox="0 0 24 24"
+                                        fill="currentColor"
+                                    >
+                                        <path
+                                            d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"
+                                        />
+                                    </svg>
+                                {:else}
+                                    <svg
+                                        width="28"
+                                        height="28"
+                                        viewBox="0 0 24 24"
+                                        fill="currentColor"
+                                    >
+                                        <path
+                                            d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"
+                                        />
+                                    </svg>
+                                {/if}
+                            </div>
+                        {/if}
+                        <span
+                            class="text-base font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] truncate transition-colors"
+                        >
+                            {playlist.name}
                         </span>
-                        {playlist.name}
                     </button>
 
+                    <!-- Edit Controls -->
                     {#if editMode && playlist.type !== "link"}
-                        <div class="playlist-controls">
+                        <div
+                            class="flex items-center gap-1 ml-2"
+                            onclick={(e) => e.stopPropagation()}
+                        >
                             <button
-                                class="btn-move-playlist"
+                                class="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--text-muted)]"
                                 onclick={() =>
                                     movePlaylistUp(playlists.indexOf(playlist))}
                                 disabled={playlists.indexOf(playlist) === 0}
                                 title="Move up"
                             >
                                 <svg
-                                    width="16"
-                                    height="16"
+                                    width="14"
+                                    height="14"
                                     viewBox="0 0 24 24"
                                     fill="currentColor"
+                                    ><path d="M7 14l5-5 5 5z" /></svg
                                 >
-                                    <path d="M7 14l5-5 5 5z" />
-                                </svg>
                             </button>
                             <button
-                                class="btn-move-playlist"
+                                class="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--text-muted)]"
                                 onclick={() =>
                                     movePlaylistDown(
                                         playlists.indexOf(playlist),
@@ -250,36 +297,37 @@
                                 title="Move down"
                             >
                                 <svg
-                                    width="16"
-                                    height="16"
+                                    width="14"
+                                    height="14"
                                     viewBox="0 0 24 24"
                                     fill="currentColor"
+                                    ><path d="M7 10l5 5 5-5z" /></svg
                                 >
-                                    <path d="M7 10l5 5 5-5z" />
-                                </svg>
+                            </button>
+                            <button
+                                class="p-1 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-[var(--bg-active)] transition-colors"
+                                onclick={() => promptDelete(playlist)}
+                                aria-label="Delete Playlist"
+                                title="Delete Playlist"
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="currentColor"
+                                    ><path
+                                        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                                    /></svg
+                                >
                             </button>
                         </div>
-                        <button
-                            class="delete-btn"
-                            onclick={() => promptDelete(playlist)}
-                            aria-label="Delete Playlist"
-                            title="Delete Playlist"
-                        >
-                            <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                            >
-                                <path
-                                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                                />
-                            </svg>
-                        </button>
                     {:else}
-                        <span class="count"
-                            >({playlist.tracks?.length || 0})</span
+                        <!-- Count -->
+                        <div
+                            class="ml-auto text-xs text-[var(--text-muted)] font-mono tracking-wider tabular-nums group-hover:text-[var(--text-secondary)]"
                         >
+                            {playlist.tracks?.length || 0}
+                        </div>
                     {/if}
                 </div>
             {/each}
@@ -300,174 +348,18 @@
 {/if}
 
 <style>
-    .playlist-sidebar {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-sm);
-        height: 100%;
-        overflow: hidden;
+    /* Custom Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
     }
-    .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-right: var(--spacing-sm);
-    }
-
-    .header-actions {
-        display: flex;
-        gap: var(--spacing-xs);
-    }
-
-    h3 {
-        margin: 0;
-        font-size: 1.1rem;
-        color: var(--text-primary);
-    }
-
-    .create-form {
-        display: flex;
-        gap: var(--spacing-sm);
-        padding: var(--spacing-sm);
-        background: var(--bg-tertiary);
-        border-radius: var(--radius-md);
-    }
-
-    .input-text {
-        flex: 1;
+    .custom-scrollbar::-webkit-scrollbar-track {
         background: transparent;
-        border: none;
-        color: var(--text-primary);
-        font-family: inherit;
-        font-size: 0.9rem;
-        outline: none;
     }
-
-    .btn-text {
-        background: var(--accent-primary);
-        color: white;
-        border: none;
-        border-radius: var(--radius-sm);
-        padding: 2px 8px;
-        font-size: 0.8rem;
-        cursor: pointer;
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
     }
-
-    .playlist-list {
-        flex: 1;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .empty-state {
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-        font-style: italic;
-        padding: var(--spacing-sm);
-    }
-
-    .playlist-item {
-        display: flex;
-        align-items: center;
-        border-radius: var(--radius-md);
-        transition: background 0.2s;
-        padding: var(--spacing-xs) var(--spacing-sm);
-        gap: var(--spacing-sm);
-    }
-
-    .playlist-item:hover {
-        background: var(--bg-tertiary);
-    }
-
-    .playlist-name {
-        flex: 1;
-        background: none;
-        border: none;
-        color: var(--text-secondary);
-        text-align: left;
-        padding: 0;
-        cursor: pointer;
-        font-family: inherit;
-        font-size: 0.95rem;
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-sm);
-        min-height: 32px;
-    }
-
-    .playlist-name:hover {
-        color: var(--text-primary);
-    }
-
-    .icon {
-        font-size: 1rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .icon svg {
-        display: block;
-    }
-
-    .count {
-        font-size: 0.8rem;
-        opacity: 0.5;
-        flex-shrink: 0;
-        margin-left: 0;
-    }
-
-    .btn-icon:hover {
-        color: var(--text-primary);
-        background: var(--bg-tertiary);
-    }
-
-    .delete-btn {
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border);
-        color: var(--text-secondary);
-        cursor: pointer;
-        padding: var(--spacing-xs);
-        border-radius: var(--radius-sm);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-    }
-
-    .delete-btn:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
-        border-color: var(--border);
-    }
-
-    .playlist-controls {
-        display: flex;
-        gap: 4px;
-    }
-
-    .btn-move-playlist {
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border);
-        color: var(--text-secondary);
-        cursor: pointer;
-        padding: 2px;
-        border-radius: var(--radius-sm);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-    }
-
-    .btn-move-playlist:hover:not(:disabled) {
-        background: var(--bg-hover);
-        color: var(--text-primary);
-    }
-
-    .btn-move-playlist:disabled {
-        opacity: 0.3;
-        cursor: not-allowed;
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: var(--text-muted);
     }
 </style>

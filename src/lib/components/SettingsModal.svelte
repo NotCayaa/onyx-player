@@ -136,7 +136,7 @@
     }
 
     async function toggleDataSaver() {
-        dataSaver = !dataSaver;
+        // dataSaver is updated by bind:checked
         try {
             await fetch("http://localhost:3000/config/preferences", {
                 method: "POST",
@@ -171,7 +171,7 @@
     }
 
     function toggleVisualizer() {
-        visualizerEnabled = !visualizerEnabled;
+        // visualizerEnabled is updated by bind:checked
         dispatch("toggleVisualizer", visualizerEnabled);
         localStorage.setItem("visualizerEnabled", visualizerEnabled.toString());
     }
@@ -183,7 +183,7 @@
     }
 
     function toggleCompactMode() {
-        compactMode = !compactMode;
+        // compactMode is updated by bind:checked
         dispatch("compactModeChange", compactMode);
         localStorage.setItem("compactMode", compactMode.toString());
     }
@@ -260,465 +260,649 @@
 </script>
 
 {#if isOpen}
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div
-        class="modal-backdrop"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-4"
         onclick={handleBackdropClick}
         onkeydown={(e) => e.key === "Escape" && close()}
         role="button"
         tabindex="0"
         transition:fade={{ duration: 200 }}
     >
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div
-            class="modal"
+            class="bg-[var(--bg-secondary)] border border-[var(--border)] backdrop-blur-3xl rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-[slideUp_0.4s]"
             onclick={(e) => e.stopPropagation()}
             transition:fly={{ y: 30, duration: 300 }}
         >
-            <div class="modal-header">
-                <h2>Settings</h2>
-                <button class="close-btn" onclick={close} aria-label="Close">
+            <!-- Header -->
+            <div
+                class="p-6 border-b border-[var(--border-light)] flex items-center justify-between bg-[var(--bg-tertiary)]"
+            >
+                <h2
+                    class="text-xl font-bold text-[var(--text-primary)] tracking-tight"
+                >
+                    Settings
+                </h2>
+                <button
+                    class="p-2 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+                    onclick={close}
+                    aria-label="Close"
+                >
                     <svg
                         width="24"
                         height="24"
                         viewBox="0 0 24 24"
                         fill="currentColor"
-                    >
-                        <path
+                        ><path
                             d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                        />
-                    </svg>
+                        /></svg
+                    >
                 </button>
             </div>
 
-            <div class="modal-content">
-                <section class="settings-section">
-                    <h3>Appearance</h3>
-
-                    <!-- Visualizer Background Toggle -->
-                    <div
-                        class="toggle-option"
-                        onclick={toggleVisualizer}
-                        onkeydown={(e) =>
-                            e.key === "Enter" && toggleVisualizer()}
-                        role="button"
-                        tabindex="0"
+            <!-- Content -->
+            <div
+                class="flex-1 overflow-y-auto p-6 flex flex-col gap-8 custom-scrollbar"
+            >
+                <!-- Appearance Section -->
+                <section class="flex flex-col gap-3">
+                    <h3
+                        class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest px-1"
                     >
-                        <div class="toggle-info">
-                            <span class="toggle-label"
+                        Appearance
+                    </h3>
+
+                    <!-- Visualizer Toggle -->
+                    <div
+                        class="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-[var(--border-light)] hover:bg-[var(--bg-active)] transition-all group"
+                    >
+                        <div class="flex flex-col">
+                            <span
+                                class="text-[var(--text-primary)] font-medium group-hover:text-[var(--text-primary)]/90"
                                 >Visualizer Background</span
                             >
-                            <span class="toggle-desc"
+                            <span class="text-xs text-[var(--text-secondary)]"
                                 >Show audio waveform behind lyrics</span
                             >
                         </div>
-                        <label class="toggle-switch">
+                        <label
+                            class="relative inline-flex items-center cursor-pointer"
+                        >
                             <input
                                 type="checkbox"
                                 bind:checked={visualizerEnabled}
                                 onchange={toggleVisualizer}
-                                onclick={(e) => e.stopPropagation()}
+                                class="sr-only peer"
                             />
-                            <span class="slider"></span>
+                            <div
+                                class="w-11 h-6 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"
+                            ></div>
                         </label>
                     </div>
 
                     <!-- Theme Toggle -->
                     <div
-                        class="toggle-option"
-                        onclick={toggleTheme}
-                        onkeydown={(e) => e.key === "Enter" && toggleTheme()}
-                        role="button"
-                        tabindex="0"
+                        class="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-[var(--border-light)] hover:bg-[var(--bg-active)] transition-all group"
                     >
-                        <div class="toggle-info">
-                            <span class="toggle-label">Dark Theme</span>
-                            <span class="toggle-desc"
+                        <div class="flex flex-col">
+                            <span
+                                class="text-[var(--text-primary)] font-medium group-hover:text-[var(--text-primary)]/90"
+                                >Dark Theme</span
+                            >
+                            <span class="text-xs text-[var(--text-secondary)]"
                                 >Use dark color scheme</span
                             >
                         </div>
-                        <label class="toggle-switch">
+                        <label
+                            class="relative inline-flex items-center cursor-pointer"
+                        >
                             <input
                                 type="checkbox"
                                 checked={isDark}
                                 onchange={toggleTheme}
+                                class="sr-only peer"
                             />
-                            <span class="slider"></span>
+                            <div
+                                class="w-11 h-6 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"
+                            ></div>
                         </label>
                     </div>
 
                     <!-- Compact Mode Toggle -->
                     <div
-                        class="toggle-option"
-                        onclick={toggleCompactMode}
-                        onkeydown={(e) =>
-                            e.key === "Enter" && toggleCompactMode()}
-                        role="button"
-                        tabindex="0"
+                        class="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-[var(--border-light)] hover:bg-[var(--bg-active)] transition-all group"
                     >
-                        <div class="toggle-info">
-                            <span class="toggle-label">Compact Mode</span>
-                            <span class="toggle-desc"
+                        <div class="flex flex-col">
+                            <span
+                                class="text-[var(--text-primary)] font-medium group-hover:text-[var(--text-primary)]/90"
+                                >Compact Mode</span
+                            >
+                            <span class="text-xs text-[var(--text-secondary)]"
                                 >Denser UI with reduced spacing</span
                             >
                         </div>
-                        <label class="toggle-switch">
+                        <label
+                            class="relative inline-flex items-center cursor-pointer"
+                        >
                             <input
                                 type="checkbox"
                                 bind:checked={compactMode}
                                 onchange={toggleCompactMode}
-                                onclick={(e) => e.stopPropagation()}
+                                class="sr-only peer"
                             />
-                            <span class="slider"></span>
+                            <div
+                                class="w-11 h-6 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"
+                            ></div>
                         </label>
                     </div>
 
                     <!-- Username Input -->
-                    <div class="toggle-option username-setting">
-                        <div class="toggle-info">
-                            <span class="toggle-label">Display Name</span>
-                            <span class="toggle-desc"
+                    <div
+                        class="flex flex-col gap-2 p-4 rounded-xl bg-white/5 border border-[var(--border-light)] hover:bg-[var(--bg-active)] transition-all"
+                    >
+                        <div class="flex flex-col mb-1">
+                            <span class="text-[var(--text-primary)] font-medium"
+                                >Display Name</span
+                            >
+                            <span class="text-xs text-[var(--text-secondary)]"
                                 >Your name for personalized greetings</span
                             >
                         </div>
-                        <div class="username-input-group">
+                        <div class="flex gap-2">
                             <input
                                 type="text"
                                 bind:value={username}
                                 placeholder="Enter your name..."
-                                class="text-input"
+                                class="flex-1 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] text-sm focus:outline-none focus:border-white/30 transition-colors placeholder:text-neutral-600"
                                 maxlength="20"
                                 onkeydown={(e) =>
                                     e.key === "Enter" && updateUsername()}
                             />
                             <button
-                                class="btn-save-username"
+                                class="bg-[var(--text-primary)] text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 onclick={updateUsername}
                                 disabled={usernameSaving}
                             >
-                                {usernameSaving ? "✓" : "Save"}
+                                {usernameSaving ? "..." : "Save"}
                             </button>
                         </div>
                     </div>
                 </section>
 
-                <section class="settings-section">
-                    <h3>Playback</h3>
-
+                <!-- Audio Section -->
+                <section class="flex flex-col gap-3">
+                    <h3
+                        class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest px-1"
+                    >
+                        Audio
+                    </h3>
                     <!-- Data Saver Toggle -->
                     <div
-                        class="toggle-option"
-                        onclick={toggleDataSaver}
-                        onkeydown={(e) =>
-                            e.key === "Enter" && toggleDataSaver()}
-                        role="button"
-                        tabindex="0"
+                        class="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-[var(--border-light)] hover:bg-[var(--bg-active)] transition-all group"
                     >
-                        <div class="toggle-info">
-                            <span class="toggle-label">Data Saver</span>
-                            <span class="toggle-desc"
-                                >Disable background downloads (Prefetch). Saves
-                                data, increases latency.</span
+                        <div class="flex flex-col">
+                            <span
+                                class="text-[var(--text-primary)] font-medium group-hover:text-[var(--text-primary)]/90"
+                                >Data Saver</span
+                            >
+                            <span class="text-xs text-[var(--text-secondary)]"
+                                >Disable background downloads (Prefetch)</span
                             >
                         </div>
-                        <label class="toggle-switch">
+                        <label
+                            class="relative inline-flex items-center cursor-pointer"
+                        >
                             <input
                                 type="checkbox"
                                 bind:checked={dataSaver}
                                 onchange={toggleDataSaver}
-                                onclick={(e) => e.stopPropagation()}
+                                class="sr-only peer"
                             />
-                            <span class="slider"></span>
+                            <div
+                                class="w-11 h-6 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"
+                            ></div>
                         </label>
+                    </div>
+                    <!-- Audio Quality (Disabled) -->
+                    <div
+                        class="flex flex-col gap-2 p-4 rounded-xl bg-white/5 border border-[var(--border-light)] opacity-75"
+                    >
+                        <div class="flex items-center justify-between">
+                            <span class="text-[var(--text-primary)] font-medium"
+                                >Stream Quality</span
+                            >
+                            <select
+                                disabled
+                                class="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[var(--text-primary)] text-xs focus:outline-none cursor-not-allowed"
+                            >
+                                <option>Best Available</option>
+                            </select>
+                        </div>
+                        <p class="text-[10px] text-[var(--text-muted)] italic">
+                            Audio quality selection is managed automatically.
+                        </p>
                     </div>
                 </section>
 
-                <!-- Spotify API Settings -->
-                <section class="settings-section">
-                    <h3>Spotify Integration</h3>
-                    <p
-                        class="toggle-desc"
-                        style="margin-bottom: var(--spacing-sm);"
+                <!-- Spotify Integration -->
+                <section class="flex flex-col gap-3">
+                    <h3
+                        class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest px-1"
                     >
-                        Enter your Spotify API credentials to enable search and
-                        recommendations. You can find these in your <a
-                            href="https://developer.spotify.com/dashboard"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style="color: var(--accent-primary);"
-                            >Spotify Dashboard</a
-                        >.
-                    </p>
+                        Spotify Integration
+                    </h3>
+                    <div
+                        class="p-4 rounded-xl bg-white/5 border border-[var(--border-light)] flex flex-col gap-4"
+                    >
+                        <p class="text-xs text-[var(--text-secondary)]">
+                            Enter your API credentials to enable search. Find
+                            them in your <a
+                                href="https://developer.spotify.com/dashboard"
+                                target="_blank"
+                                class="text-[var(--text-primary)] hover:text-[var(--text-primary)]/80 underline"
+                                >Spotify Dashboard</a
+                            >.
+                        </p>
 
-                    <div class="toggle-option username-setting">
-                        <div class="toggle-info">
-                            <span class="toggle-label">Client ID</span>
-                        </div>
-                        <div class="input-container">
-                            <input
-                                type={showClientId ? "text" : "password"}
-                                bind:value={spotifyClientId}
-                                placeholder="Enter Client ID"
-                                class="text-input"
-                                style="width: 100%; padding-right: 40px;"
-                            />
-                            <button
-                                class="visibility-btn"
-                                onclick={() => (showClientId = !showClientId)}
-                                aria-label={showClientId
-                                    ? "Hide Client ID"
-                                    : "Show Client ID"}
+                        <!-- Client ID -->
+                        <div class="flex flex-col gap-1">
+                            <span
+                                class="text-xs text-[var(--text-secondary)] font-medium"
+                                >Client ID</span
                             >
-                                {#if showClientId}
-                                    <!-- Eye Off Icon -->
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 24 24"
-                                        fill="currentColor"
-                                    >
-                                        <path
-                                            d="M11.83 9L15 12.17V12a3 3 0 0 0-3-3h-.17zm-4.3.8l1.55 1.55c-.05.21-.08.43-.08.65a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53a5 5 0 0 1-5-5c0-.79.2-1.53.53-2.2zm-2.53-1.1l7.15 7.15c-.97.55-2.07.95-3.29 1.12l-.06.01c-.34.03-.68.04-1.02.04C6.5 17.16 2.06 13.62.94 12c1.32-1.92 3.32-3.37 5.61-4.04l-1.55-1.55zM12 4.84c4.66 0 8.56 3.12 9.87 7.16-.6 1.84-1.99 3.42-3.83 4.45l-1.58-1.58c1.39-.75 2.44-1.89 2.95-3.23-.92-2.43-3.03-4.24-5.65-4.58l-.16-.01V7h.16A5 5 0 0 1 12 4.84zM4.27 3l16.73 16.73L19.73 21 3 4.27 4.27 3z"
-                                        />
-                                    </svg>
-                                {:else}
-                                    <!-- Eye Icon -->
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 24 24"
-                                        fill="currentColor"
-                                    >
-                                        <path
-                                            d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
-                                        />
-                                    </svg>
-                                {/if}
-                            </button>
+                            <div class="relative">
+                                <input
+                                    type={showClientId ? "text" : "password"}
+                                    bind:value={spotifyClientId}
+                                    class="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] text-sm focus:outline-none focus:border-white/30 pr-10"
+                                    placeholder="Enter Client ID"
+                                />
+                                <button
+                                    class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                                    onclick={() =>
+                                        (showClientId = !showClientId)}
+                                >
+                                    {#if showClientId}
+                                        <svg
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                            ><path
+                                                d="M11.83 9L15 12.17V12a3 3 0 0 0-3-3h-.17zm-4.3.8l1.55 1.55c-.05.21-.08.43-.08.65a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53a5 5 0 0 1-5-5c0-.79.2-1.53.53-2.2zm-2.53-1.1l7.15 7.15c-.97.55-2.07.95-3.29 1.12l-.06.01c-.34.03-.68.04-1.02.04C6.5 17.16 2.06 13.62.94 12c1.32-1.92 3.32-3.37 5.61-4.04l-1.55-1.55zM12 4.84c4.66 0 8.56 3.12 9.87 7.16-.6 1.84-1.99 3.42-3.83 4.45l-1.58-1.58c1.39-.75 2.44-1.89 2.95-3.23-.92-2.43-3.03-4.24-5.65-4.58l-.16-.01V7h.16A5 5 0 0 1 12 4.84zM4.27 3l16.73 16.73L19.73 21 3 4.27 4.27 3z"
+                                            /></svg
+                                        >
+                                    {:else}
+                                        <svg
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                            ><path
+                                                d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
+                                            /></svg
+                                        >
+                                    {/if}
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="toggle-option username-setting">
-                        <div class="toggle-info">
-                            <span class="toggle-label">Client Secret</span>
-                        </div>
-                        <div class="input-container">
-                            <input
-                                type={showClientSecret ? "text" : "password"}
-                                bind:value={spotifyClientSecret}
-                                placeholder="Enter Client Secret"
-                                class="text-input"
-                                style="width: 100%; padding-right: 40px;"
-                            />
-                            <button
-                                class="visibility-btn"
-                                onclick={() =>
-                                    (showClientSecret = !showClientSecret)}
-                                aria-label={showClientSecret
-                                    ? "Hide Client Secret"
-                                    : "Show Client Secret"}
+                        <!-- Client Secret -->
+                        <div class="flex flex-col gap-1">
+                            <span
+                                class="text-xs text-[var(--text-secondary)] font-medium"
+                                >Client Secret</span
                             >
-                                {#if showClientSecret}
-                                    <!-- Eye Off Icon -->
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 24 24"
-                                        fill="currentColor"
-                                    >
-                                        <path
-                                            d="M11.83 9L15 12.17V12a3 3 0 0 0-3-3h-.17zm-4.3.8l1.55 1.55c-.05.21-.08.43-.08.65a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53a5 5 0 0 1-5-5c0-.79.2-1.53.53-2.2zm-2.53-1.1l7.15 7.15c-.97.55-2.07.95-3.29 1.12l-.06.01c-.34.03-.68.04-1.02.04C6.5 17.16 2.06 13.62.94 12c1.32-1.92 3.32-3.37 5.61-4.04l-1.55-1.55zM12 4.84c4.66 0 8.56 3.12 9.87 7.16-.6 1.84-1.99 3.42-3.83 4.45l-1.58-1.58c1.39-.75 2.44-1.89 2.95-3.23-.92-2.43-3.03-4.24-5.65-4.58l-.16-.01V7h.16A5 5 0 0 1 12 4.84zM4.27 3l16.73 16.73L19.73 21 3 4.27 4.27 3z"
-                                        />
-                                    </svg>
-                                {:else}
-                                    <!-- Eye Icon -->
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 24 24"
-                                        fill="currentColor"
-                                    >
-                                        <path
-                                            d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
-                                        />
-                                    </svg>
-                                {/if}
-                            </button>
+                            <div class="relative">
+                                <input
+                                    type={showClientSecret
+                                        ? "text"
+                                        : "password"}
+                                    bind:value={spotifyClientSecret}
+                                    class="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] text-sm focus:outline-none focus:border-white/30 pr-10"
+                                    placeholder="Enter Client Secret"
+                                />
+                                <button
+                                    class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                                    onclick={() =>
+                                        (showClientSecret = !showClientSecret)}
+                                >
+                                    {#if showClientSecret}
+                                        <svg
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                            ><path
+                                                d="M11.83 9L15 12.17V12a3 3 0 0 0-3-3h-.17zm-4.3.8l1.55 1.55c-.05.21-.08.43-.08.65a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53a5 5 0 0 1-5-5c0-.79.2-1.53.53-2.2zm-2.53-1.1l7.15 7.15c-.97.55-2.07.95-3.29 1.12l-.06.01c-.34.03-.68.04-1.02.04C6.5 17.16 2.06 13.62.94 12c1.32-1.92 3.32-3.37 5.61-4.04l-1.55-1.55zM12 4.84c4.66 0 8.56 3.12 9.87 7.16-.6 1.84-1.99 3.42-3.83 4.45l-1.58-1.58c1.39-.75 2.44-1.89 2.95-3.23-.92-2.43-3.03-4.24-5.65-4.58l-.16-.01V7h.16A5 5 0 0 1 12 4.84zM4.27 3l16.73 16.73L19.73 21 3 4.27 4.27 3z"
+                                            /></svg
+                                        >
+                                    {:else}
+                                        <svg
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                            ><path
+                                                d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
+                                            /></svg
+                                        >
+                                    {/if}
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
                         <button
-                            class="btn-save-username"
+                            class="w-full bg-[var(--text-primary)] text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-neutral-200 transition-colors mt-2"
                             onclick={saveSpotifyCredentials}
                             disabled={savingSpotify}
-                            style="flex: 1;"
                         >
                             {savingSpotify ? "Saving..." : "Save Credentials"}
                         </button>
                     </div>
                 </section>
 
-                <section class="settings-section">
-                    <h3>Data Management (Advanced)</h3>
-                    <p
-                        class="toggle-desc"
-                        style="margin-bottom: var(--spacing-sm);"
+                <!-- Data Management -->
+                <section class="flex flex-col gap-3">
+                    <h3
+                        class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest px-1"
                     >
-                        Restore your cache or playlists from backup files. The
-                        app will overwrite existing data.
-                    </p>
+                        Data Management
+                    </h3>
 
-                    <div style="display: flex; gap: 10px;">
-                        <!-- Cache Import -->
-                        <div style="flex: 1;">
+                    <div class="grid grid-cols-2 gap-3">
+                        <button
+                            class="bg-white/5 hover:bg-[var(--bg-active)] border border-[var(--border-light)] rounded-xl p-4 flex flex-col gap-2 transition-all group items-start text-left"
+                            onclick={() =>
+                                document.getElementById("import-cache").click()}
+                        >
+                            <span
+                                class="text-[var(--text-primary)] font-medium text-sm group-hover:text-[var(--text-primary)]/90"
+                                >Import Cache</span
+                            >
+                            <span
+                                class="text-[10px] text-[var(--text-secondary)]"
+                                >Restore from cache.json</span
+                            >
                             <input
                                 type="file"
                                 accept=".json"
                                 id="import-cache"
-                                style="display: none;"
+                                class="hidden"
                                 onchange={(e) => importData(e, "cache")}
                             />
-                            <button
-                                class="btn-clear-cache"
-                                onclick={() =>
-                                    document
-                                        .getElementById("import-cache")
-                                        .click()}
-                                style="width: 100%;"
-                            >
-                                Import Cache.json
-                            </button>
-                        </div>
+                        </button>
 
-                        <!-- Playlist Import -->
-                        <div style="flex: 1;">
+                        <button
+                            class="bg-white/5 hover:bg-[var(--bg-active)] border border-[var(--border-light)] rounded-xl p-4 flex flex-col gap-2 transition-all group items-start text-left"
+                            onclick={() =>
+                                document
+                                    .getElementById("import-playlist")
+                                    .click()}
+                        >
+                            <span
+                                class="text-[var(--text-primary)] font-medium text-sm group-hover:text-[var(--text-primary)]/90"
+                                >Import Playlists</span
+                            >
+                            <span
+                                class="text-[10px] text-[var(--text-secondary)]"
+                                >Restore from playlists.json</span
+                            >
                             <input
                                 type="file"
                                 accept=".json"
                                 id="import-playlist"
-                                style="display: none;"
+                                class="hidden"
                                 onchange={(e) => importData(e, "playlist")}
                             />
-                            <button
-                                class="btn-clear-cache"
-                                onclick={() =>
-                                    document
-                                        .getElementById("import-playlist")
-                                        .click()}
-                                style="width: 100%;"
-                            >
-                                Import Playlists.json
-                            </button>
-                        </div>
-                    </div>
+                        </button>
 
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <!-- Cache Export -->
-                        <div style="flex: 1;">
-                            <button
-                                class="btn-clear-cache"
-                                onclick={() => exportData("cache")}
-                                style="width: 100%;"
-                            >
-                                Export Cache
-                            </button>
-                        </div>
-
-                        <!-- Playlist Export -->
-                        <div style="flex: 1;">
-                            <button
-                                class="btn-clear-cache"
-                                onclick={() => exportData("playlist")}
-                                style="width: 100%;"
-                            >
-                                Export Playlists
-                            </button>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="settings-section">
-                    <h3>Audio</h3>
-
-                    <!-- Audio Quality Selector -->
-                    <div class="audio-quality">
-                        <label for="quality-select">Stream Quality</label>
-                        <select
-                            id="quality-select"
-                            bind:value={audioQuality}
-                            onchange={(e) => {
-                                changeAudioQuality();
-                                setTimeout(() => e.target.blur(), 100);
-                            }}
+                        <button
+                            class="bg-white/5 hover:bg-[var(--bg-active)] border border-[var(--border-light)] rounded-xl p-4 flex flex-col gap-2 transition-all group items-start text-left"
+                            onclick={() => exportData("cache")}
                         >
-                            <option value="normal">Normal (128 kbps)</option>
-                            <option value="high">High (192+ kbps)</option>
-                        </select>
+                            <span
+                                class="text-[var(--text-primary)] font-medium text-sm group-hover:text-[var(--text-primary)]/90"
+                                >Export Cache</span
+                            >
+                            <span
+                                class="text-[10px] text-[var(--text-secondary)]"
+                                >Backup cache.json</span
+                            >
+                        </button>
+
+                        <button
+                            class="bg-white/5 hover:bg-[var(--bg-active)] border border-[var(--border-light)] rounded-xl p-4 flex flex-col gap-2 transition-all group items-start text-left"
+                            onclick={() => exportData("playlist")}
+                        >
+                            <span
+                                class="text-[var(--text-primary)] font-medium text-sm group-hover:text-[var(--text-primary)]/90"
+                                >Export Playlists</span
+                            >
+                            <span
+                                class="text-[10px] text-[var(--text-secondary)]"
+                                >Backup playlists.json</span
+                            >
+                        </button>
                     </div>
 
-                    <p class="note">
-                        <strong>Note:</strong> Audio quality selector is not yet
-                        implemented. Currently always streams best available quality
-                        from YouTube.
-                    </p>
-                </section>
-
-                <section class="settings-section">
-                    <h3>Cache</h3>
-
-                    <button
-                        class="btn-clear-cache"
-                        onclick={requestClearCache}
-                        disabled={cacheClearing}
+                    <div
+                        class="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex flex-col gap-4 mt-2"
                     >
-                        {cacheClearing ? "Clearing..." : "Clear All Cache"}
-                    </button>
-                    <p class="cache-note">
-                        Clears all cached metadata and downloaded audio files
-                    </p>
-
-                    <button
-                        class="btn-clear-cache"
-                        onclick={clearHistory}
-                        style="margin-top: var(--spacing-md);"
-                    >
-                        Clear Listening History
-                    </button>
-                    <p class="cache-note">Clears "Jump Back In" history</p>
+                        <div class="flex flex-col gap-2">
+                            <button
+                                class="w-full bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-left"
+                                onclick={requestClearCache}
+                                disabled={cacheClearing}
+                            >
+                                {cacheClearing
+                                    ? "Clearing..."
+                                    : "Clear All Cache"}
+                            </button>
+                            <button
+                                class="w-full bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-left"
+                                onclick={clearHistory}
+                            >
+                                Clear Listening History
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
-                <section class="settings-section">
-                    <h3>About</h3>
-                    <p><strong>Onyx Player v1.0</strong></p>
-                    <p>Made by caya8205</p>
-                </section>
+                <!-- About -->
+                <section
+                    class="flex flex-col gap-4 pt-4 pb-2 border-t border-[var(--border-light)]"
+                >
+                    <div class="flex flex-col gap-2">
+                        <h3
+                            class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest px-1"
+                        >
+                            About
+                        </h3>
+                        <div
+                            class="p-4 rounded-xl bg-white/5 border border-[var(--border-light)]"
+                        >
+                            <div class="flex items-center gap-3 mb-3">
+                                <img
+                                    src="./logo.png"
+                                    alt="Onyx"
+                                    class="w-10 h-10 rounded-lg shadow-lg"
+                                />
+                                <div>
+                                    <h4
+                                        class="text-[var(--text-primary)] font-bold text-lg"
+                                    >
+                                        Onyx Player
+                                    </h4>
+                                    <p
+                                        class="text-xs text-[var(--text-secondary)]"
+                                    >
+                                        v1.0.0 • Nightly Build
+                                    </p>
+                                </div>
+                            </div>
+                            <p
+                                class="text-sm text-[var(--text-secondary)] leading-relaxed"
+                            >
+                                A modern, high-performance music player built
+                                with web technologies. Designed for aesthetics
+                                and seamless listening.
+                            </p>
+                            <div
+                                class="mt-4 pt-4 border-t border-[var(--border-light)] flex justify-between items-center"
+                            >
+                                <span class="text-xs text-[var(--text-muted)]"
+                                    >Made by caya8205</span
+                                >
+                                <a
+                                    href="https://github.com/NotCayaa/onyx-player"
+                                    target="_blank"
+                                    class="text-xs text-[var(--text-primary)] hover:underline"
+                                    >GitHub</a
+                                >
+                            </div>
+                        </div>
+                    </div>
 
-                <section class="settings-section">
-                    <h3>Tech Stack</h3>
+                    <div class="flex flex-col gap-2 pt-2">
+                        <h3
+                            class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest px-1"
+                        >
+                            Tech Stack
+                        </h3>
 
-                    <p><strong>Frontend</strong></p>
-                    <ul>
-                        <li>Svelte 5 - Vite 5</li>
-                        <li>Electron 39</li>
-                        <li>audiomotion-analyzer (Visualizer)</li>
-                        <li>colorthief (Color Extraction)</li>
-                    </ul>
+                        <div class="flex flex-col gap-3">
+                            <!-- Frontend -->
+                            <div>
+                                <p
+                                    class="text-sm font-bold text-[var(--text-secondary)] mb-2 px-1"
+                                >
+                                    Frontend
+                                </p>
+                                <ul class="grid grid-cols-1 gap-1">
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-orange-500"
+                                        ></div>
+                                        Svelte 5 - Vite 5
+                                    </li>
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-cyan-400"
+                                        ></div>
+                                        Tailwind CSS v3 (Modern Styling)
+                                    </li>
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-blue-400"
+                                        ></div>
+                                        Electron 39
+                                    </li>
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-purple-500"
+                                        ></div>
+                                        audiomotion-analyzer (Visualizer)
+                                    </li>
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-yellow-500"
+                                        ></div>
+                                        colorthief (Color Extraction)
+                                    </li>
+                                </ul>
+                            </div>
 
-                    <p><strong>Backend</strong></p>
-                    <ul>
-                        <li>Node.js + Express 4.21</li>
-                        <li>Spotify Web API 5.0</li>
-                        <li>youtube-sr (Search)</li>
-                        <li>yt-dlp (Hybrid Stream/Download)</li>
-                    </ul>
+                            <!-- Backend -->
+                            <div>
+                                <p
+                                    class="text-sm font-bold text-[var(--text-secondary)] mb-2 px-1"
+                                >
+                                    Backend
+                                </p>
+                                <ul class="grid grid-cols-1 gap-1">
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-green-500"
+                                        ></div>
+                                        Node.js + Express 4.21
+                                    </li>
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-green-400"
+                                        ></div>
+                                        Spotify Web API 5.0
+                                    </li>
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-red-500"
+                                        ></div>
+                                        youtube-sr (Search)
+                                    </li>
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-red-400"
+                                        ></div>
+                                        yt-dlp (Hybrid Stream/Download)
+                                    </li>
+                                </ul>
+                            </div>
 
-                    <p><strong>External APIs</strong></p>
-                    <ul>
-                        <li>Spotify API (MetaData)</li>
-                        <li>YouTube (Audio)</li>
-                        <li>LRCLib (Lyrics)</li>
-                    </ul>
+                            <!-- External -->
+                            <div>
+                                <p
+                                    class="text-sm font-bold text-[var(--text-secondary)] mb-2 px-1"
+                                >
+                                    External APIs
+                                </p>
+                                <ul class="grid grid-cols-1 gap-1">
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-white"
+                                        ></div>
+                                        Spotify API (MetaData)
+                                    </li>
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-red-600"
+                                        ></div>
+                                        YouTube (Audio)
+                                    </li>
+                                    <li
+                                        class="text-xs text-[var(--text-secondary)] bg-white/5 border border-[var(--border-light)] rounded px-2 py-1.5 flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-1.5 h-1.5 rounded-full bg-blue-300"
+                                        ></div>
+                                        LRCLib (Lyrics)
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </section>
             </div>
         </div>
@@ -734,346 +918,30 @@
 {/if}
 
 <style>
-    .modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
+    /* Custom Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
     }
-
-    .modal {
-        background: var(--bg-secondary);
-        border-radius: var(--radius-lg);
-        width: 90%;
-        max-width: 600px;
-        max-height: 80vh;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .modal-header {
-        padding: var(--spacing-lg);
-        border-bottom: 1px solid var(--border-color);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .modal-header h2 {
-        margin: 0;
-        color: var(--text-primary);
-    }
-
-    .close-btn {
+    .custom-scrollbar::-webkit-scrollbar-track {
         background: transparent;
-        border: none;
-        color: var(--text-secondary);
-        cursor: pointer;
-        padding: var(--spacing-xs);
-        border-radius: var(--radius-sm);
-        transition: all var(--transition-fast);
     }
-
-    .close-btn:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
-    }
-
-    .modal-content {
-        padding: var(--spacing-lg);
-        overflow-y: auto;
-        flex: 1;
-    }
-
-    .settings-section {
-        margin-bottom: var(--spacing-xl);
-    }
-
-    .settings-section:last-child {
-        margin-bottom: 0;
-    }
-
-    .settings-section h3 {
-        margin: 0 0 var(--spacing-md) 0;
-        padding-bottom: var(--spacing-sm);
-        color: var(--text-primary);
-        font-size: 1.1rem;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .settings-section p {
-        margin: var(--spacing-sm) 0;
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-    }
-
-    .settings-section ul {
-        margin: var(--spacing-sm) 0;
-        padding-left: var(--spacing-lg);
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-    }
-
-    .settings-section li {
-        margin: var(--spacing-xs) 0;
-    }
-
-    .toggle-option {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: var(--spacing-md);
-        background: var(--bg-tertiary);
-        border-radius: var(--radius-md);
-        margin-bottom: var(--spacing-sm);
-        cursor: pointer;
-        transition: background var(--transition-fast);
-    }
-
-    .toggle-option:hover {
-        background: var(--bg-hover);
-    }
-
-    .toggle-info {
-        flex: 1;
-    }
-
-    .toggle-label {
-        display: block;
-        color: var(--text-primary);
-        font-weight: 500;
-        margin-bottom: 2px;
-    }
-
-    .toggle-desc {
-        display: block;
-        color: var(--text-secondary);
-        font-size: 0.85rem;
-    }
-
-    .toggle-switch {
-        position: relative;
-        display: inline-block;
-        width: 48px;
-        height: 26px;
-        margin-left: var(--spacing-md);
-    }
-
-    .toggle-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-
-    .slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: var(--bg-hover);
-        transition: 0.3s;
-        border-radius: 25px;
-    }
-
-    .slider:before {
-        position: absolute;
-        content: "";
-        height: 18px;
-        width: 18px;
-        left: 4px;
-        bottom: 4px;
-        background-color: white;
-        transition: 0.3s;
-        border-radius: 50%;
-    }
-
-    input:checked + .slider {
-        background-color: var(--accent-primary);
-    }
-
-    input:checked + .slider:before {
-        transform: translateX(22px);
-    }
-
-    .note {
-        background: var(--bg-tertiary);
-        padding: var(--spacing-sm);
-        border-radius: var(--radius-sm);
-        border-left: 3px solid #f59e0b;
-        font-size: 0.85rem;
-    }
-
-    .audio-quality {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-sm);
-    }
-
-    .audio-quality label {
-        color: var(--text-primary);
-        font-weight: 500;
-    }
-
-    .audio-quality select {
-        padding: var(--spacing-sm) var(--spacing-md);
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        color: var(--text-primary);
-        cursor: pointer;
-        font-size: 0.9rem;
-        transition: all var(--transition-fast);
-
-        /* Remove default appearance */
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-
-        /* Custom dropdown arrow */
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23b3b3b3' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right var(--spacing-sm) center;
-        padding-right: 2.5rem;
-    }
-
-    .audio-quality select:hover {
-        background-color: var(--bg-hover);
-        border-color: var(--border-hover);
-    }
-
-    .audio-quality select:focus {
-        outline: none;
-    }
-
-    .audio-quality select option {
-        background: var(--bg-secondary);
-        color: var(--text-primary);
-        padding: var(--spacing-sm);
-    }
-
-    .text-input {
-        padding: var(--spacing-sm);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        background: var(--bg-tertiary);
-        color: var(--text-primary);
-        font-size: 0.875rem;
-        width: 200px;
-        transition: all var(--transition-fast);
-    }
-
-    .text-input:hover {
-        background-color: var(--bg-hover);
-        border-color: var(--border-hover);
-    }
-
-    .text-input:focus {
-        outline: none;
-        border-color: var(--accent-primary);
-    }
-
-    .input-container {
-        position: relative;
-        width: 100%;
-        display: flex;
-        align-items: center;
-    }
-
-    .visibility-btn {
-        position: absolute;
-        right: 8px;
-        background: transparent;
-        border: none;
-        color: var(--text-secondary);
-        cursor: pointer;
-        padding: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: var(--radius-sm);
-        transition: all 0.2s;
-    }
-
-    .visibility-btn:hover {
-        color: var(--text-primary);
+    .custom-scrollbar::-webkit-scrollbar-thumb {
         background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
     }
 
-    /* Username Setting */
-    .username-setting {
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--spacing-md);
-    }
-
-    .username-input-group {
-        display: flex;
-        gap: var(--spacing-sm);
-        align-items: center;
-    }
-
-    .username-input-group .text-input {
-        flex: 1;
-    }
-
-    .btn-save-username {
-        padding: var(--spacing-sm) var(--spacing-md);
-        background: var(--accent-primary);
-        color: white;
-        border: none;
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        font-size: 0.875rem;
-        font-weight: 500;
-        transition: all var(--transition-fast);
-        min-width: 60px;
-    }
-
-    .btn-save-username:hover:not(:disabled) {
-        background: var(--accent-hover);
-        transform: translateY(-1px);
-    }
-
-    .btn-save-username:disabled {
-        background: var(--accent-primary);
-        opacity: 0.8;
-        cursor: default;
-    }
-
-    .btn-clear-cache {
-        width: 100%;
-        padding: var(--spacing-sm) var(--spacing-md);
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        color: var(--text-primary);
-        cursor: pointer;
-        font-weight: 500;
-        transition: all var(--transition-fast);
-    }
-
-    .btn-clear-cache:hover:not(:disabled) {
-        background: var(--bg-hover);
-        border-color: var(--border-hover);
-    }
-
-    .btn-clear-cache:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .cache-note {
-        margin-top: var(--spacing-sm);
-        font-size: 0.85rem;
-        color: var(--text-secondary);
+    /* Animation */
+    @keyframes slideUp {
+        from {
+            transform: translateY(30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
     }
 </style>
