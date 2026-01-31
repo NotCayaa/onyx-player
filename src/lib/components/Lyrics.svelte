@@ -1,6 +1,9 @@
 <script>
-    import { onMount } from "svelte";
+    import { onMount, createEventDispatcher } from "svelte";
     import Visualizer from "./Visualizer.svelte";
+    import { fetchLyrics } from "../utils/lyrics.js";
+
+    const dispatch = createEventDispatcher();
 
     export let currentTrack = null;
     export let currentTime = 0; // Audio playback time in seconds
@@ -13,57 +16,24 @@
     let syncedLyrics = []; // Array of {time: number, text: string}
     let activeLyricIndex = -1;
     let lyricsContainer;
+    let lastFetchedTrackId = null; // Cache to prevent refetching on tab switch
 
-    function cleanTitle(title) {
-        return title
-            .replace(/\(Official Video\)/gi, "")
-            .replace(/\(Official Music Video\)/gi, "")
-            .replace(/\(Lyrics\)/gi, "")
-            .replace(/\(Official Lyric Video\)/gi, "")
-            .replace(/\(Feat\..*?\)/gi, "")
-            .replace(/\(ft\..*?\)/gi, "")
-            .replace(/\[.*?\]/g, "") // Remove brackets like [Official Video]
-            .replace(/\s+-\s+.*$/, "") // Remove " - Artist" suffix if present in title
-            .trim();
-    }
-
-    function findBestMatch(results, track) {
-        if (!results || results.length === 0) return null;
-
-        // Filter by artist first (loose match)
-        const artistMatches = results.filter(
-            (r) =>
-                r.artistName
-                    .toLowerCase()
-                    .includes(track.artist.toLowerCase()) ||
-                track.artist.toLowerCase().includes(r.artistName.toLowerCase()),
-        );
-
-        const candidates = artistMatches.length > 0 ? artistMatches : results;
-
-        // Find closest duration match
-        let bestMatch = null;
-        let minDiff = Infinity;
-
-        for (const candidate of candidates) {
-            // lrclib returns duration in seconds
-            const diff = Math.abs(candidate.duration - track.duration);
-
-            // Bonus points for synced lyrics
-            const score = diff - (candidate.syncedLyrics ? 1 : 0);
-
-            if (score < minDiff) {
-                minDiff = score;
-                bestMatch = candidate;
-            }
-        }
-        return bestMatch;
+    function openZenMode() {
+        dispatch("openZenMode", { syncedLyrics, activeLyricIndex });
     }
 
     async function loadLyrics() {
         if (!currentTrack) {
             lyrics = "";
             syncedLyrics = [];
+            lastFetchedTrackId = null;
+            return;
+        }
+
+        // Skip if already fetched for this track (prevents refetch on tab switch)
+        const trackId =
+            currentTrack.id || currentTrack.videoId || currentTrack.name;
+        if (trackId === lastFetchedTrackId) {
             return;
         }
 
@@ -71,97 +41,12 @@
         error = null;
         lyrics = "";
         syncedLyrics = [];
+        lastFetchedTrackId = trackId;
 
         try {
-            const cleanedTitle = cleanTitle(currentTrack.name);
-            const artistName =
-                currentTrack.artists || currentTrack.artist || "";
-            const query = `${cleanedTitle} ${artistName}`;
-
-            // Try lrclib.net first (supports synced lyrics)
-            let results = [];
-            let lrclibFailed = false;
-
-            try {
-                const res = await fetch(
-                    `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`,
-                );
-
-                if (res.ok) {
-                    results = await res.json();
-                    if (!Array.isArray(results)) results = [];
-                } else {
-                    lrclibFailed = true;
-                }
-            } catch (fetchErr) {
-                lrclibFailed = true;
-            }
-
-            // Normalize duration
-            let durationSec = 0;
-            if (typeof currentTrack.duration === "number") {
-                durationSec =
-                    currentTrack.duration > 1000
-                        ? currentTrack.duration / 1000
-                        : currentTrack.duration;
-            } else if (typeof currentTrack.duration_ms === "number") {
-                durationSec = currentTrack.duration_ms / 1000;
-            }
-
-            const trackForMatching = {
-                artist: artistName,
-                duration: durationSec || 0,
-            };
-
-            const bestMatch = findBestMatch(results, trackForMatching);
-
-            if (bestMatch) {
-                let data = bestMatch;
-
-                // If search result doesn't have lyrics, try fetching by ID
-                if (!bestMatch.syncedLyrics && !bestMatch.plainLyrics) {
-                    try {
-                        const lyricsRes = await fetch(
-                            `https://lrclib.net/api/get/${bestMatch.id}`,
-                        );
-                        if (lyricsRes.ok) {
-                            data = await lyricsRes.json();
-                        }
-                    } catch (fetchErr) {
-                        // ignore
-                    }
-                }
-
-                if (data.syncedLyrics) {
-                    syncedLyrics = parseSyncedLyrics(data.syncedLyrics);
-                } else if (data.plainLyrics) {
-                    lyrics = data.plainLyrics;
-                } else {
-                    lyrics = "Lyrics not available";
-                }
-            } else if (lrclibFailed || results.length === 0) {
-                // Fallback: Try lyrics.ovh API (plain lyrics only)
-                try {
-                    const ovhRes = await fetch(
-                        `https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(cleanedTitle)}`,
-                    );
-
-                    if (ovhRes.ok) {
-                        const ovhData = await ovhRes.json();
-                        if (ovhData.lyrics) {
-                            lyrics = ovhData.lyrics;
-                        } else {
-                            lyrics = "Lyrics not found for this track";
-                        }
-                    } else {
-                        lyrics = "Lyrics not found for this track";
-                    }
-                } catch (ovhErr) {
-                    lyrics = "Lyrics not found for this track";
-                }
-            } else {
-                lyrics = "Lyrics not found for this track";
-            }
+            const result = await fetchLyrics(currentTrack);
+            lyrics = result.lyrics;
+            syncedLyrics = result.syncedLyrics;
         } catch (err) {
             console.error("Lyrics error:", err);
             error = "Failed to load lyrics";
@@ -170,28 +55,6 @@
         } finally {
             isLoading = false;
         }
-    }
-
-    function parseSyncedLyrics(syncedText) {
-        const lines = syncedText.split("\n");
-        const parsed = [];
-
-        for (const line of lines) {
-            // Match format [mm:ss.xx] or [mm:ss]
-            const match = line.match(/^\[(\d{2}):(\d{2})\.(\d{2})\]\s*(.*)$/);
-            if (match) {
-                const minutes = parseInt(match[1]);
-                const seconds = parseInt(match[2]);
-                const centiseconds = parseInt(match[3]);
-                const text = match[4];
-
-                const timeInSeconds =
-                    minutes * 60 + seconds + centiseconds / 100;
-                parsed.push({ time: timeInSeconds, text });
-            }
-        }
-
-        return parsed;
     }
 
     // Update active lyric based on current time
@@ -266,24 +129,41 @@
         </div>
     {/if}
 
+    <!-- Zen Mode Toggle Button -->
+    <button
+        class="absolute top-2 right-2 z-20 p-2 rounded-lg bg-white/5 hover:bg-white/15 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all duration-200"
+        on:click={openZenMode}
+        title="Enter Zen Mode"
+    >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+            />
+        </svg>
+    </button>
+
     <!-- Lyrics Foreground Layer -->
     <div class="relative z-10 flex flex-col h-full overflow-hidden p-4">
-        <div
-            class="flex-1 overflow-y-auto flex flex-col items-center w-full scrollbar-hide text-center"
-            bind:this={lyricsContainer}
-        >
-            {#if isLoading}
+        {#if isLoading}
+            <div
+                class="flex-1 flex flex-col items-center justify-center p-8 gap-4 text-[var(--text-muted)]"
+            >
                 <div
-                    class="flex flex-col items-center justify-center p-8 gap-4 text-[var(--text-muted)]"
-                >
-                    <div
-                        class="w-6 h-6 border-2 border-[var(--border)] border-t-[var(--text-primary)] rounded-full animate-spin"
-                    ></div>
-                    <p>Loading lyrics...</p>
-                </div>
-            {:else if error}
+                    class="w-6 h-6 border-2 border-[var(--border)] border-t-[var(--text-primary)] rounded-full animate-spin"
+                ></div>
+                <p>Loading lyrics...</p>
+            </div>
+        {:else if error}
+            <div
+                class="flex-1 flex flex-col items-center justify-center text-center"
+            >
                 <p class="text-red-400 p-8">{error}</p>
-            {:else if syncedLyrics.length > 0}
+            </div>
+        {:else if syncedLyrics.length > 0}
+            <div
+                class="flex-1 overflow-y-auto flex flex-col items-center w-full scrollbar-hide text-center relative"
+                bind:this={lyricsContainer}
+            >
                 <div class="flex flex-col gap-2 w-full pb-32 pt-16">
                     {#each syncedLyrics as line, index}
                         <div
@@ -299,16 +179,32 @@
                         </div>
                     {/each}
                 </div>
-            {:else if lyrics}
+            </div>
+        {:else if lyrics}
+            <div
+                class="flex-1 overflow-y-auto w-full scrollbar-hide text-center"
+            >
                 <pre
                     class="font-sans text-base leading-loose whitespace-pre-wrap text-[var(--text-primary)] p-4">{lyrics}</pre>
-            {:else if currentTrack}
-                <p class="text-[var(--text-muted)] p-8">No lyrics available</p>
-            {:else}
+            </div>
+        {:else if currentTrack}
+            <div
+                class="flex-1 flex flex-col items-center justify-center text-center"
+            >
+                <p
+                    class="text-[var(--text-muted)] p-8 text-lg font-medium opacity-80"
+                >
+                    Lyrics not found for this track
+                </p>
+            </div>
+        {:else}
+            <div
+                class="flex-1 flex flex-col items-center justify-center text-center"
+            >
                 <p class="text-[var(--text-muted)] p-8">
                     Play a track to see lyrics
                 </p>
-            {/if}
-        </div>
+            </div>
+        {/if}
     </div>
 </div>

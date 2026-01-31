@@ -45,6 +45,19 @@
         close();
     }
 
+    function shufflePlay() {
+        if (tracks.length > 0) {
+            // Fisher-Yates shuffle
+            const shuffled = [...tracks];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            dispatch("play", { tracks: shuffled });
+            close();
+        }
+    }
+
     function toggleEditMode() {
         editMode = !editMode;
     }
@@ -238,6 +251,23 @@
                                     ><path d="M8 5v14l11-7z" /></svg
                                 >
                                 Play All
+                            </button>
+                            <button
+                                class="p-2.5 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--bg-active)] transition-colors border border-[var(--border)]"
+                                onclick={shufflePlay}
+                                title="Shuffle"
+                                aria-label="Shuffle and Play"
+                            >
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"
+                                    />
+                                </svg>
                             </button>
                             <button
                                 class="px-6 py-2.5 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium hover:bg-[var(--bg-active)] transition-colors border border-[var(--border)]"

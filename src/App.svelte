@@ -7,6 +7,7 @@
     import Search from "./lib/components/Search.svelte";
     import Queue from "./lib/components/Queue.svelte";
     import Lyrics from "./lib/components/Lyrics.svelte";
+    import ZenMode from "./lib/components/ZenMode.svelte";
     import PlaylistSidebar from "./lib/components/PlaylistSidebar.svelte";
     import SettingsModal from "./lib/components/SettingsModal.svelte";
     import WelcomeModal from "./lib/components/WelcomeModal.svelte";
@@ -94,6 +95,11 @@
     let showPlaylistModal = false;
     let selectedPlaylist = null;
     let showLyrics = false; // New V3 State: Toggle between Queue/Lyrics in Right Panel
+    let showZenMode = false; // Zen Mode state
+    let isPlaying = false; // Track play state for ZenMode
+    let lyricsComponent; // Reference to Lyrics component for synced lyrics data
+    let syncedLyrics = []; // Synced lyrics data from Lyrics component
+    let volume = 1; // Volume state for ZenMode sync
 
     // Listening history
     let listeningHistory = [];
@@ -285,9 +291,14 @@
     }
 
     function clearQueue() {
-        queue = [];
-        currentTrack = null;
-        currentIndex = 0;
+        // Clear queue only, keep current track playing
+        if (currentTrack && queue.length > 0) {
+            queue = [queue[currentIndex]]; // Keep only current track
+            currentIndex = 0;
+        } else {
+            queue = [];
+            currentIndex = 0;
+        }
         // Also clear auto-queue tracking
         autoQueueTrackIds = [];
         lastAutoQueueBaseTrack = null;
@@ -308,6 +319,30 @@
         if (currentIndex > 0) {
             playTrack(currentIndex - 1);
         }
+    }
+
+    function handleShuffle() {
+        if (queue.length <= 1) return;
+
+        // Fisher-Yates shuffle, keeping current track at index 0
+        const currentTrackItem = queue[currentIndex];
+        const otherTracks = queue.filter((_, i) => i !== currentIndex);
+
+        for (let i = otherTracks.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
+        }
+
+        // Put current track at start, rest shuffled after
+        queue = [currentTrackItem, ...otherTracks];
+        currentIndex = 0;
+    }
+
+    function handleStop() {
+        // Stop current track only, keep queue intact
+        currentTrack = null;
+        currentTime = 0;
+        // Queue remains - user can resume later by clicking a track in queue
     }
 
     // Save-to-playlist modal (from Queue)
@@ -733,9 +768,13 @@
                     bind:queue
                     bind:currentTime
                     bind:analyser
+                    bind:isPlaying
+                    bind:volume
                     onTrackEnd={handleTrackEnd}
                     onNext={handleNext}
                     onPrevious={handlePrevious}
+                    onShuffle={handleShuffle}
+                    onStop={handleStop}
                 />
             </div>
 
@@ -760,14 +799,8 @@
                 </div>
 
                 <div class="flex-1 overflow-hidden relative">
-                    {#if showLyrics}
-                        <Lyrics
-                            {currentTrack}
-                            {currentTime}
-                            {analyser}
-                            {visualizerEnabled}
-                        />
-                    {:else}
+                    <!-- Keep both mounted to preserve state, toggle visibility -->
+                    <div class={showLyrics ? "hidden" : "h-full"}>
                         <Queue
                             {queue}
                             {currentIndex}
@@ -777,7 +810,20 @@
                             onClear={clearQueue}
                             onSave={openPlaylistModal}
                         />
-                    {/if}
+                    </div>
+                    <div class={showLyrics ? "h-full" : "hidden"}>
+                        <Lyrics
+                            bind:this={lyricsComponent}
+                            {currentTrack}
+                            {currentTime}
+                            {analyser}
+                            {visualizerEnabled}
+                            on:openZenMode={(e) => {
+                                syncedLyrics = e.detail.syncedLyrics;
+                                showZenMode = true;
+                            }}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
@@ -865,4 +911,23 @@
     />
 
     <Toast />
+
+    {#if showZenMode}
+        <ZenMode
+            {currentTrack}
+            {currentTime}
+            {analyser}
+            {isPlaying}
+            {queue}
+            {volume}
+            on:close={() => (showZenMode = false)}
+            on:previous={handlePrevious}
+            on:next={handleNext}
+            on:togglePlay={() => playerComponent?.togglePlay()}
+            on:volumeChange={(e) => playerComponent?.setVolumeValue(e.detail)}
+            on:seek={(e) => playerComponent?.seekTo(e.detail)}
+            on:shuffle={handleShuffle}
+            on:stop={handleStop}
+        />
+    {/if}
 </main>

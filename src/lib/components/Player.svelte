@@ -9,15 +9,17 @@
   export let currentTrack = null;
   export let queue = [];
   export let onTrackEnd = () => {};
+  export let onShuffle = () => {};
+  export let onStop = () => {};
 
   let audio;
   let audioContext;
   let gainNode = null; // GainNode for volume control through AudioContext
   export let analyser = null; // Export analyser for visualizer
-  let isPlaying = false;
+  export let isPlaying = false; // Export for ZenMode
   export let currentTime = 0; // Export for lyrics sync
   let duration = 0;
-  let volume = 1;
+  export let volume = 1; // Export for ZenMode volume sync
   let isLoading = false;
   let previousTrackId = null;
 
@@ -158,7 +160,7 @@
     isPlaying = false;
   }
 
-  function togglePlay() {
+  export function togglePlay() {
     if (isPlaying) {
       pause();
     } else {
@@ -184,6 +186,25 @@
       console.log("[Player] GainNode volume set to:", volume);
     } else {
       audio.volume = volume;
+    }
+  }
+
+  // Exported function for external volume control (ZenMode)
+  export function setVolumeValue(val) {
+    volume = val;
+    if (gainNode && audioContext) {
+      audio.volume = 1;
+      gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+    } else if (audio) {
+      audio.volume = volume;
+    }
+  }
+
+  // Exported function for external seek (ZenMode)
+  export function seekTo(seconds) {
+    if (audio && isFinite(seconds)) {
+      audio.currentTime = seconds;
+      currentTime = seconds; // Optimistic update
     }
   }
 
@@ -358,6 +379,20 @@
 
   <!-- Controls -->
   <div class="flex items-center justify-center gap-6 w-full mb-2">
+    <!-- Stop/Clear -->
+    <button
+      class="text-[var(--text-secondary)] hover:text-red-400 transition-colors p-2 hover:bg-white/5 rounded-full"
+      onclick={onStop}
+      aria-label="Stop and Clear Queue"
+      title="Stop"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path
+          d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+        />
+      </svg>
+    </button>
+
     <!-- Prev -->
     <button
       class="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-2 hover:bg-white/5 rounded-full"
@@ -404,6 +439,20 @@
       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"
         ><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg
       >
+    </button>
+
+    <!-- Shuffle -->
+    <button
+      class="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-2 hover:bg-white/5 rounded-full"
+      onclick={onShuffle}
+      aria-label="Shuffle Queue"
+      title="Shuffle"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path
+          d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"
+        />
+      </svg>
     </button>
   </div>
 
